@@ -1,14 +1,18 @@
 package institute.cocaine.audio
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
-
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame
-
 import net.dv8tion.jda.api.audio.AudioSendHandler
+import net.dv8tion.jda.api.events.interaction.SlashCommandEvent
 import java.nio.ByteBuffer
 
 
-class SendHandler(private val audioPlayer: AudioPlayer) : AudioSendHandler {
+data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
+    private val scheduler = TrackScheduler(audioPlayer)
+    init {
+        audioPlayer.addListener(scheduler)
+    }
+
     private var lastFrame: AudioFrame? = null
     override fun canProvide(): Boolean {
         lastFrame = audioPlayer.provide() ?: return false
@@ -16,13 +20,12 @@ class SendHandler(private val audioPlayer: AudioPlayer) : AudioSendHandler {
     }
 
     override fun provide20MsAudio(): ByteBuffer {
-        return if (canProvide())
-            ByteBuffer.wrap(lastFrame?.data)
-        else
-            ByteBuffer.wrap(byteArrayOf())
+        return ByteBuffer.wrap(lastFrame!!.data)
     }
 
     override fun isOpus(): Boolean {
         return true
     }
+
+    fun acceptEvent(event: SlashCommandEvent) = scheduler.acceptEvent(event)
 }
