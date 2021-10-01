@@ -20,7 +20,18 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.5.31'
+    implementation    (group: 'net.dv8tion',                name: 'JDA',                     version: '4.3.0_331') {
+        exclude module: 'opus-java'
+    }
+    implementation    (group: 'com.github.minndevelopment', name: 'jda-ktx',                 version: '84b6fcbd95') {
+        exclude module: 'kotlin-stdlib-jdk8'
+        exclude module: 'kotlinx-coroutines-core'
+    }
+    implementation     group: 'org.jetbrains.kotlin',       name: 'kotlin-stdlib',           version: '1.5.31'
+    implementation    (group: 'org.jetbrains.kotlinx',      name: 'kotlinx-coroutines-core', version: '1.5.2-native-mt') {
+        exclude module: 'kotlin-stdlib-jdk8'
+        exclude module: 'kotlin-stdlib-common'
+    }
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
