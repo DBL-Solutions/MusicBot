@@ -24,7 +24,7 @@ dependencies {
         exclude module: 'opus-java'
     }
     implementation 'com.github.Walkyst:lavaplayer-fork:3a54cbd43b'
-    implementation    (group: 'com.github.minndevelopment', name: 'jda-ktx',                 version: '84b6fcbd95') {
+    implementation    (group: 'com.github.minndevelopment', name: 'jda-ktx',                 version: 'eb089a5293') {
         exclude module: 'kotlin-stdlib-jdk8'
         exclude module: 'kotlinx-coroutines-core'
     }

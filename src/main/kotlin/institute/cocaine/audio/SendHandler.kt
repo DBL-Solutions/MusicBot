@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 
 
 data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
-    private val scheduler = TrackScheduler(audioPlayer)
+    val scheduler = TrackScheduler(audioPlayer)
     init {
         audioPlayer.addListener(scheduler)
     }
@@ -27,5 +27,8 @@ data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
         return true
     }
 
-    fun acceptEvent(event: SlashCommandEvent) = scheduler.acceptEvent(event)
+    fun acceptEvent(event: SlashCommandEvent): SendHandler {
+        scheduler.acceptEvent(event)
+        return this
+    }
 }

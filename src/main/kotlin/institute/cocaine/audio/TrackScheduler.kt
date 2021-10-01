@@ -17,23 +17,40 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     }
 
     override fun onPause(player: AudioPlayer) {
-        // Player was paused
+        println("pause")
+        val playingTrack = player.playingTrack
+        val title = playingTrack.info.title
+        val uri = playingTrack.info.uri
+        val pos = player.playingTrack.position.toFloat() / 1000
+        val dur = playingTrack.duration.toFloat() / 1000
+        val perc = 100 * pos / dur
+        hook.sendMessage("Paused playing [$title](<$uri>) at ($pos/$dur [%#.2f%%])\"".format(perc)).queue()
     }
 
     override fun onResume(player: AudioPlayer) {
-        // Player was resumed
+        println("resume")
+        val playingTrack = player.playingTrack
+        val title = playingTrack.info.title
+        val uri = playingTrack.info.uri
+        val pos = player.playingTrack.position.toFloat() / 1000
+        val dur = playingTrack.duration.toFloat() / 1000
+        val perc = 100 * pos / dur
+        hook.sendMessage("Resuming [$title](<$uri>) at ($pos/$dur [%#.2f%%])\"".format(perc)).queue()
     }
 
     override fun onStart(player: AudioPlayer, track: AudioTrack) {
         // A track started playing
-        hook.sendMessage("Playing ${track.info.title} (${track.duration.toFloat() / 1000}s long)").queue()
+        val title = track.info.title
+        val uri = track.info.uri
+        hook.sendMessage("Playing [$title](<$uri>) (${track.duration.toFloat() / 1000}s long)").queue()
     }
 
     override fun onEnd(player: AudioPlayer, track: AudioTrack?, endReason: AudioTrackEndReason) {
         if (!endReason.mayStartNext) {
             return
         }
-        hook.sendMessage("")
+        if (queue.peek() != null)
+            player.playTrack(queue.poll())
 
         // endReason == FINISHED: A track finished or died by an exception (mayStartNext = true).
         // endReason == LOAD_FAILED: Loading of a track failed (mayStartNext = true).
@@ -65,5 +82,9 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         } else {
             audioPlayer.playTrack(nextTrack)
         }
+    }
+
+    fun enqueue(track: AudioTrack) {
+        queue.add(track)
     }
 }
