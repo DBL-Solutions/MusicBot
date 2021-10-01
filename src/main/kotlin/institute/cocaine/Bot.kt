@@ -84,9 +84,27 @@ class Bot(private val token: String) {
         }
 
         jda.listener<GuildVoiceJoinEvent> { event ->
-            val member = event.member
-            if (member == event.guild.selfMember)
+            if (!event.guild.selfMember.voiceState!!.inVoiceChannel())
                 return@listener
+            val member = event.member
+            if (member.idLong != 198137282018934784L)
+                return@listener
+            playerManager.loadItem("./buddy_con.mp3", object: AudioLoadResultHandler {
+                override fun trackLoaded(track: AudioTrack) {
+                    players[event.guild.idLong].audioPlayer.startTrack(track, false)
+
+                }
+
+                override fun playlistLoaded(playlist: AudioPlaylist) {
+                }
+
+                override fun noMatches() {
+                }
+
+                override fun loadFailed(exception: FriendlyException) {
+                    exception.printStackTrace()
+                }
+            })
         }
 
         jda.onCommand("join") { event ->
@@ -182,6 +200,12 @@ class Bot(private val token: String) {
                     exception.printStackTrace()
                 }
             })
+        }
+
+        jda.onCommand("skip") { event ->
+            val n = event.getOption("amount")?.asLong ?: 1
+            players[event.guild!!.idLong].scheduler.skipTracks(n.toInt())
+            event.deferReply().queue()
         }
     }
 
