@@ -2,8 +2,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.5.31'
     id 'java'
 }
-
-group 'org.example'
+group 'institute.cocaine'
 version '1.0-SNAPSHOT'
 
 repositories {
