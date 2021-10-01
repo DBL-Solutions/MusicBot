@@ -23,6 +23,7 @@ dependencies {
     implementation    (group: 'net.dv8tion',                name: 'JDA',                     version: '4.3.0_331') {
         exclude module: 'opus-java'
     }
+    implementation 'com.github.Walkyst:lavaplayer-fork:3a54cbd43b'
     implementation    (group: 'com.github.minndevelopment', name: 'jda-ktx',                 version: '84b6fcbd95') {
         exclude module: 'kotlin-stdlib-jdk8'
         exclude module: 'kotlinx-coroutines-core'
