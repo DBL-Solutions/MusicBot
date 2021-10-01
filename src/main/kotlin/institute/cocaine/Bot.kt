@@ -8,13 +8,14 @@ import dev.minn.jda.ktx.listener
 import dev.minn.jda.ktx.onCommand
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.entities.VoiceChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 
 class Bot(private val token: String) {
     private val jda: JDA = JDABuilder.createLight(this.token).injectKTX().build()
 
     init {
-        jda.listener<ReadyEvent> { readyEvent: ReadyEvent ->
+        jda.listener<ReadyEvent> { readyEvent ->
             val guild = jda.getGuildById("")!!
             guild.upsertCommand(name = "join", description = "Joins your current VC!") {
                 option<String>("channel", "joins another channel, you ain't at") {
@@ -30,5 +31,9 @@ class Bot(private val token: String) {
             val channel = event.guild?.voiceChannelCache?.getElementById(id) ?: return@onCommand
             event.deferReply().setContent("not yet in ${channel.name}").queue()
         }
+    }
+
+    suspend fun joinVC(vc: VoiceChannel) {
+        vc.guild.audioManager.openAudioConnection(vc)
     }
 }
