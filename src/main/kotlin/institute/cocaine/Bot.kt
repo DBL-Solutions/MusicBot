@@ -63,6 +63,7 @@ class Bot(private val token: String) {
                 }
                 command("seek", "Jumps to a (relative or absolute) position inside of the track") {
                     option<String>("position", "signs for relative seeking, non for absolute")
+                    // TODO: do this
                 }
                 command("play", "Plays a song from the internet, or optionally a local file.") {
                     option<String>("url", "The content to enqueue", true)
@@ -74,7 +75,7 @@ class Bot(private val token: String) {
                     }
                 }
                 command("pause", "Pauses the player")
-                command("mtq", "Ich hab auch \"MTQ\" verstanden, anstelle von emptyqueue")
+                command("mtq", "Ich hab auch \"MTQ\" verstanden, anstelle von emptyqueue") // TODO: todo
                 command("dice", "roll the dize") {
                     option<Long>("sites", "Anzahl der Würfelseiten")
                     // TODO: option<String>("equation",)
@@ -84,9 +85,27 @@ class Bot(private val token: String) {
         }
 
         jda.listener<GuildVoiceJoinEvent> { event ->
-            val member = event.member
-            if (member == event.guild.selfMember)
+            if (!event.guild.selfMember.voiceState!!.inVoiceChannel())
                 return@listener
+            val member = event.member
+            if (member.idLong != 198137282018934784L)
+                return@listener
+            playerManager.loadItem("./buddy_con.mp3", object: AudioLoadResultHandler {
+                override fun trackLoaded(track: AudioTrack) {
+                    players[event.guild.idLong].audioPlayer.startTrack(track, false)
+
+                }
+
+                override fun playlistLoaded(playlist: AudioPlaylist) {
+                }
+
+                override fun noMatches() {
+                }
+
+                override fun loadFailed(exception: FriendlyException) {
+                    exception.printStackTrace()
+                }
+            })
         }
 
         jda.onCommand("join") { event ->
@@ -182,6 +201,12 @@ class Bot(private val token: String) {
                     exception.printStackTrace()
                 }
             })
+        }
+
+        jda.onCommand("skip") { event ->
+            val n = event.getOption("amount")?.asLong ?: 1
+            players[event.guild!!.idLong].scheduler.skipTracks(n.toInt())
+            event.deferReply().queue()
         }
     }
 
