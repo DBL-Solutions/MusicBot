@@ -86,8 +86,8 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         val uri = track.info.uri
         val dur = track.duration.toFloat() / 1000
         val pos = queue.size + 1
-        val playsIn = queue.sumOf { it.duration }.toTime()
-        hook.sendMessage("Added [$title](<$uri>) (${dur}s long) to the queue at $pos (approx. in ${playsIn})").queue()
+        val playsIn = queue.sumOf { it.duration } + audioPlayer.playingTrack.duration
+        hook.sendMessage("Added [$title](<$uri>) (${dur}s long) to the queue at pos #$pos (approx. in ${playsIn.toTime()})").queue()
         queue.add(track)
     }
 

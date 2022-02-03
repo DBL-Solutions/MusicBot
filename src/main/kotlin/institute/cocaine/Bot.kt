@@ -185,9 +185,9 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("skip") { event ->
-            val n = event.getOption("amount")?.asLong ?: 1
+            val n = event.getOption("amount")?.asLong ?: 1L
             players[event.guild!!.idLong].scheduler.skipTracks(n.toInt())
-            event.deferReply().queue()
+            event.deferReply().setContent("Skipping $n tracks!").queue()
         }
     }
 
