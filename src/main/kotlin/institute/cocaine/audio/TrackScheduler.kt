@@ -82,6 +82,21 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     }
 
     fun enqueue(track: AudioTrack) {
+        val title = track.info.title
+        val uri = track.info.uri
+        val dur = track.duration.toFloat() / 1000
+        val pos = queue.size + 1
+        val playsIn = queue.sumOf { it.duration }.toTime()
+        hook.sendMessage("Added [$title](<$uri>) (${dur}s long) to the queue at $pos (approx. in ${playsIn})").queue()
         queue.add(track)
+    }
+
+    private fun Long.toTime(): String {
+        val hconv = (60 * 60 * 1000)
+        val mconv = 60000
+        val hours = this / hconv
+        val min = (this - hours * hconv) / mconv
+        val  s = (this - hours * hconv - min * mconv).toFloat() / 1000
+        return "${hours}h ${min}min ${s}s"
     }
 }

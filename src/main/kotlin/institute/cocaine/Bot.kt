@@ -72,7 +72,8 @@ class Bot(private val token: String) {
                     // TODO: option<String>("equation",)
                 }
                 command("clean", "Purges the channel history until a non bot message is encountered")
-            }.queue()
+            }
+                .queue()
         }
 
         jda.listener<GuildVoiceJoinEvent> { event ->
@@ -175,7 +176,7 @@ class Bot(private val token: String) {
             if (!event.guild!!.selfMember.voiceState!!.inVoiceChannel()) {
                 joinVC(event, event.member!!.voiceState!!.channel!!)
             } else {
-                event.deferReply().setContent("Some thonk").queue()
+                event.deferReply().setContent("Trying to add element to queue").queue()
             }
             playerManager.loadItem(event.getOption("url")!!.asString, AudioLoader.also {
                 it.id = event.guild!!.idLong
@@ -199,7 +200,6 @@ class Bot(private val token: String) {
         playerManager.loadItem("./neutral_con.mp3", object: AudioLoadResultHandler {
             override fun trackLoaded(track: AudioTrack) {
                 players[vc.guild.idLong].audioPlayer.startTrack(track, false)
-
             }
 
             override fun playlistLoaded(playlist: AudioPlaylist) {
@@ -220,6 +220,7 @@ class Bot(private val token: String) {
     }
 
     object AudioLoader : AudioLoadResultHandler {
+
         var id: Long = 0
         lateinit var players: HashMapPutDefault
         override fun trackLoaded(track: AudioTrack) {
