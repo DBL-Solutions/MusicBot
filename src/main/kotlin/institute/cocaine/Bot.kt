@@ -175,17 +175,21 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("play") { event ->
-            if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
+            val runable = if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
                 joinVC(event, event.member!!.voiceState!!.channel!!)
+                Runnable {
+                    println("Playing music now in ${event.member!!.voiceState!!.channel!!.name}")
+                }
             } else {
                 event.deferReply().setContent("Trying to add element to queue").queue()
+                Runnable {
+                    event.hook.deleteOriginal().queue()
+                }
             }
             playerManager.loadItem(event.getOption("url")!!.asString, AudioLoader.apply {
                 id = event.guild!!.idLong
                 this@apply.players = this@Bot.players
-                runnable = Runnable {
-                    event.hook.deleteOriginal().queue()
-                }
+                runnable = runable
             })
         }
 
