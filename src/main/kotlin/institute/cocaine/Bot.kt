@@ -9,20 +9,22 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.minn.jda.ktx.injectKTX
 import dev.minn.jda.ktx.interactions.choice
-import dev.minn.jda.ktx.interactions.command
 import dev.minn.jda.ktx.interactions.option
+import dev.minn.jda.ktx.interactions.slash
 import dev.minn.jda.ktx.interactions.updateCommands
 import dev.minn.jda.ktx.listener
 import dev.minn.jda.ktx.onCommand
 import institute.cocaine.audio.SendHandler
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.entities.AudioChannel
 import net.dv8tion.jda.api.entities.VoiceChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent
-import net.dv8tion.jda.api.events.interaction.SlashCommandEvent
+import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 
@@ -41,22 +43,22 @@ class Bot(private val token: String) {
         jda.listener<ReadyEvent> { readyEvent ->
             val guild = jda.getGuildById(732689330769887314L)!!
             guild.updateCommands {
-                command(name = "join", description = "Joins your current VC!") {
+                slash(name = "join", description = "Joins your current VC!") {
                     option<VoiceChannel>("channel", "joins another channel, you ain't at")
                 }
-                command("disconnect", "Disconnects from it's current VC")
-                command("nowplaying", "Prints the current playing song.") {
+                slash("disconnect", "Disconnects from it's current VC")
+                slash("nowplaying", "Prints the current playing song.") {
                     option<String>("grab", "DMs you the current now playing information")
                 }
-                command("queue", "Prints the current queue.")
-                command("skip", "Skips playing & queued tracks") {
+                slash("queue", "Prints the current queue.")
+                slash("skip", "Skips playing & queued tracks") {
                     option<Int>("amount", "the amount of songs to skip")
                 }
-                command("seek", "Jumps to a (relative or absolute) position inside of the track") {
+                slash("seek", "Jumps to a (relative or absolute) position inside of the track") {
                     option<String>("position", "signs for relative seeking, non for absolute")
                     // TODO: do this
                 }
-                command("play", "Plays a song from the internet, or optionally a local file.") {
+                slash("play", "Plays a song from the internet, or optionally a local file.") {
                     option<String>("url", "The content to enqueue", true)
                     option<Int>("position", "Enqueueing position, where the song should be inserted") {
                         choice("now", 0L)
@@ -65,19 +67,19 @@ class Bot(private val token: String) {
                         choice("last / append (default)", -1L)
                     }
                 }
-                command("pause", "Pauses the player")
-                command("mtq", "Ich hab auch \"MTQ\" verstanden, anstelle von emptyqueue") // TODO: todo
-                command("dice", "roll the dize") {
+                slash("pause", "Pauses the player")
+                slash("mtq", "Ich hab auch \"MTQ\" verstanden, anstelle von emptyqueue") // TODO: todo
+                slash("dice", "roll the dize") {
                     option<Long>("sites", "Anzahl der Würfelseiten")
                     // TODO: option<String>("equation",)
                 }
-                command("clean", "Purges the channel history until a non bot message is encountered")
+                slash("clean", "Purges the channel history until a non bot message is encountered")
             }
                 .queue()
         }
 
         jda.listener<GuildVoiceJoinEvent> { event ->
-            if (!event.guild.selfMember.voiceState!!.inVoiceChannel())
+            if (!event.guild.selfMember.voiceState!!.inAudioChannel())
                 return@listener
             val member = event.member
             if (member.idLong != 198137282018934784L)
@@ -107,7 +109,7 @@ class Bot(private val token: String) {
 
             val voiceState = member.voiceState
 
-            if ((voiceState == null || !voiceState.inVoiceChannel()) && argChannel == null) {
+            if ((voiceState == null || !voiceState.inAudioChannel()) && argChannel == null) {
                 event.reply("You ain't in a channel and didn't provide one either.").queue()
                 return@onCommand
             }
@@ -173,14 +175,17 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("play") { event ->
-            if (!event.guild!!.selfMember.voiceState!!.inVoiceChannel()) {
+            if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
                 joinVC(event, event.member!!.voiceState!!.channel!!)
             } else {
                 event.deferReply().setContent("Trying to add element to queue").queue()
             }
-            playerManager.loadItem(event.getOption("url")!!.asString, AudioLoader.also {
-                it.id = event.guild!!.idLong
-                it.players = players
+            playerManager.loadItem(event.getOption("url")!!.asString, AudioLoader.apply {
+                id = event.guild!!.idLong
+                this@apply.players = this@Bot.players
+                runnable = Runnable {
+                    event.hook.deleteOriginal().queue()
+                }
             })
         }
 
@@ -191,7 +196,7 @@ class Bot(private val token: String) {
         }
     }
 
-    private suspend fun joinVC(event: SlashCommandEvent, vc: VoiceChannel) {
+    private fun joinVC(event: GenericCommandInteractionEvent, vc: AudioChannel) {
         val audioManager = vc.guild.audioManager
         audioManager.openAudioConnection(vc)
         val sendHandler = players[vc.guild.idLong].acceptEvent(event)
@@ -214,7 +219,7 @@ class Bot(private val token: String) {
         })
     }
 
-    private fun leaveVC(event: SlashCommandEvent, vc: VoiceChannel) {
+    private fun leaveVC(event: GenericCommandInteractionEvent, vc: AudioChannel) {
         event.reply("> Left ${vc.asMention}").queue()
         vc.guild.audioManager.closeAudioConnection()
     }
@@ -222,9 +227,11 @@ class Bot(private val token: String) {
     object AudioLoader : AudioLoadResultHandler {
 
         var id: Long = 0
+        lateinit var runnable: Runnable
         lateinit var players: HashMapPutDefault
         override fun trackLoaded(track: AudioTrack) {
             players[id].scheduler.enqueue(track)
+            runnable.run()
         }
 
         override fun playlistLoaded(playlist: AudioPlaylist) {

@@ -4,42 +4,37 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason
-import net.dv8tion.jda.api.events.interaction.SlashCommandEvent
+import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
-import java.util.*
+import java.util.LinkedList
 
 class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() {
+
+    private enum class PlayerState(val format: String) {
+        PAUSE("Paused playing [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
+        RESUME("Resuming [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
+        PLAY("Playing [%s](<%s>) (%#.3fs long)"),
+        ENQUEUE("Added [%s](<%s>) (%#.3fs long) to the queue at pos #%d (approx. in %s)");
+
+        fun format(vararg args: Any?) = format.format(*args)
+    }
+
     private lateinit var hook: InteractionHook
     val queue = LinkedList<AudioTrack>()
-    fun acceptEvent(event: SlashCommandEvent) {
+    fun acceptEvent(event: GenericCommandInteractionEvent) {
         this.hook = event.hook
     }
 
     override fun onPause(player: AudioPlayer) {
-        val playingTrack = player.playingTrack
-        val title = playingTrack.info.title
-        val uri = playingTrack.info.uri
-        val pos = player.playingTrack.position.toFloat() / 1000
-        val dur = playingTrack.duration.toFloat() / 1000
-        val perc = 100 * pos / dur
-        hook.sendMessage("Paused playing [$title](<$uri>) at ($pos/$dur [%#.2f%%])\"".format(perc)).queue()
+        logMessageToHook(player.playingTrack, PlayerState.PAUSE)
     }
 
     override fun onResume(player: AudioPlayer) {
-        val playingTrack = player.playingTrack
-        val title = playingTrack.info.title
-        val uri = playingTrack.info.uri
-        val pos = player.playingTrack.position.toFloat() / 1000
-        val dur = playingTrack.duration.toFloat() / 1000
-        val perc = 100 * pos / dur
-        hook.sendMessage("Resuming [$title](<$uri>) at ($pos/$dur [%#.2f%%])\"".format(perc)).queue()
+        logMessageToHook(player.playingTrack, PlayerState.RESUME)
     }
 
     override fun onStart(player: AudioPlayer, track: AudioTrack) {
-        // A track started playing
-        val title = track.info.title
-        val uri = track.info.uri
-        hook.sendMessage("Playing [$title](<$uri>) (${track.duration.toFloat() / 1000}s long)").queue()
+        logMessageToHook(track, PlayerState.PLAY)
     }
 
     override fun onEnd(player: AudioPlayer, track: AudioTrack?, endReason: AudioTrackEndReason) {
@@ -65,6 +60,24 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         // Audio track has been unable to provide us any audio, might want to just start a new track
     }
 
+    private fun logMessageToHook(track: AudioTrack, playerState: PlayerState) {
+        val title = track.info.title
+        val uri = track.info.uri
+        val pos = audioPlayer.playingTrack?.position?.toFloat()?.div(1000)
+        val dur = track.duration.toFloat() / 1000
+        val perc = (100) * (pos?.div(dur) ?: 1f)
+        val playsIn = queue.sumOf { it.duration } + audioPlayer.playingTrack.duration
+
+        val action = when (playerState) {
+            PlayerState.PAUSE -> hook.sendMessage(PlayerState.PAUSE.format(title, uri, pos, dur, perc))
+            PlayerState.RESUME -> hook.sendMessage(PlayerState.RESUME.format(title, uri, pos, dur, perc))
+            PlayerState.PLAY -> hook.sendMessage(PlayerState.PLAY.format(title, uri, dur))
+            PlayerState.ENQUEUE -> hook.sendMessage(PlayerState.ENQUEUE.format(title, uri, dur, queue.size + 1, playsIn.toTime()))
+        }
+        action.queue()
+    }
+
+    @Suppress("unused")
     private fun skipTrack() {
         skipTracks(1)
     }
@@ -82,12 +95,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     }
 
     fun enqueue(track: AudioTrack) {
-        val title = track.info.title
-        val uri = track.info.uri
-        val dur = track.duration.toFloat() / 1000
-        val pos = queue.size + 1
-        val playsIn = queue.sumOf { it.duration } + audioPlayer.playingTrack.duration
-        hook.sendMessage("Added [$title](<$uri>) (${dur}s long) to the queue at pos #$pos (approx. in ${playsIn.toTime()})").queue()
+        logMessageToHook(track, PlayerState.ENQUEUE)
         queue.add(track)
     }
 

@@ -3,7 +3,7 @@ package institute.cocaine.audio
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame
 import net.dv8tion.jda.api.audio.AudioSendHandler
-import net.dv8tion.jda.api.events.interaction.SlashCommandEvent
+import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import java.nio.ByteBuffer
 
 
@@ -27,7 +27,7 @@ data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
         return true
     }
 
-    fun acceptEvent(event: SlashCommandEvent): SendHandler {
+    fun acceptEvent(event: GenericCommandInteractionEvent): SendHandler {
         scheduler.acceptEvent(event)
         return this
     }

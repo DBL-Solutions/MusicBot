@@ -20,11 +20,11 @@ repositories {
 }
 
 dependencies {
-    implementation    (group: 'net.dv8tion',                name: 'JDA',                     version: '4.3.0_331') {
+    implementation    (group: 'net.dv8tion',                name: 'JDA',                     version: '5.0.0-alpha.5') {
         exclude module: 'opus-java'
     }
-    implementation 'com.github.Walkyst:lavaplayer-fork:1.3.97'
-    implementation    (group: 'com.github.minndevelopment', name: 'jda-ktx',                 version: 'eb089a5293') {
+    implementation     group: 'com.github.Walkyst',         name: 'lavaplayer-fork',         version: '1.3.97'
+    implementation    (group: 'com.github.minndevelopment', name: 'jda-ktx',                 version: '0.8.4-alpha.5') {
         exclude module: 'kotlin-stdlib-jdk8'
         exclude module: 'kotlinx-coroutines-core'
     }
@@ -45,6 +45,7 @@ test {
 compileKotlin {
     kotlinOptions {
         jvmTarget="16"
+        freeCompilerArgs=["-Xlambdas=indy", "-Xjvm-default=all"]
     }
 }
 
