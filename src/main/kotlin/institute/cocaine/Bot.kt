@@ -8,7 +8,7 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.minn.jda.ktx.Embed
-import dev.minn.jda.ktx.Message as KTXMessage
+import dev.minn.jda.ktx.Message
 import dev.minn.jda.ktx.injectKTX
 import dev.minn.jda.ktx.interactions.choice
 import dev.minn.jda.ktx.interactions.option
@@ -31,7 +31,6 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 import java.util.*
-import kotlin.collections.HashMap
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -82,7 +81,7 @@ class Bot(private val token: String) {
                 }
                 slash("clean", "Purges the channel history until a non bot message is encountered")
             }
-            .queue()
+                .queue()
         }
 
         jda.listener<GuildVoiceJoinEvent> { event ->
@@ -210,7 +209,7 @@ class Bot(private val token: String) {
             val dm = event.getOption("grab")?.asBoolean ?: false
             val track = players[event.guild!!.idLong].audioPlayer.playingTrack
             if (!dm) {
-                event.reply(KTXMessage {
+                event.reply(Message {
                     content = track?.asInfo() ?: "Nothing rn, queue something bish"
                     allowedMentionTypes = EnumSet.noneOf(Message.MentionType::class.java)
                 }).queue()
@@ -254,7 +253,7 @@ class Bot(private val token: String) {
         vc.guild.audioManager.closeAudioConnection()
     }
 
-    object AudioLoader : AudioLoadResultHandler {
+    object AudioLoader: AudioLoadResultHandler {
 
         var id: Long = 0
         lateinit var runnable: Runnable
@@ -275,7 +274,7 @@ class Bot(private val token: String) {
         }
     }
 
-    class HashMapPutDefault(private val playerManager: AudioPlayerManager) : HashMap<Long, SendHandler>() {
+    class HashMapPutDefault(private val playerManager: AudioPlayerManager): HashMap<Long, SendHandler>() {
         override fun get(key: Long): SendHandler {
             if (!containsKey(key)) {
                 val temp = SendHandler(playerManager.createPlayer())
@@ -322,7 +321,7 @@ class Bot(private val token: String) {
         val mconv = (60 * 1000)
         val hours = this / hconv
         val min = (this - hours * hconv) / mconv
-        val  s = (this - hours * hconv - min * mconv) / 1000
+        val s = (this - hours * hconv - min * mconv) / 1000
         return "" + (if (hours > 0) "$hours:" else "") + (if (min > 0) "$min:" else "") + s
     }
 

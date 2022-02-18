@@ -105,6 +105,6 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         val hours = this / hconv
         val min = (this - hours * hconv) / mconv
         val  s = (this - hours * hconv - min * mconv).toFloat() / 1000
-        return "${hours}h ${min}min ${s}s"
+        return "" + (if (hours > 0) "${hours}hours " else "") + (if (min > 0) "${min}mins" else "") + "${s}s"
     }
 }
