@@ -291,7 +291,7 @@ class Bot(private val token: String) {
         val uri = info.uri
         val author = info.author
         val length = (title.length + 4 + author.length + 7 + 6).coerceIn(20, if (isEmbed) 50 else 100)
-        val text = "[$title](<$uri>) by $author until <t:${(System.currentTimeMillis() + duration) / 1000}:t>"
+        val text = "[$title](<$uri>) by `$author` until <t:${(System.currentTimeMillis() + duration) / 1000}:t>"
         val (progressbar, pos) = makeProgressbar(position.toFloat() / duration, length)
         val curTime = position.toTime()
         val halfTimeLength = (curTime.length.toFloat() / 2).ceil()
@@ -300,8 +300,9 @@ class Bot(private val token: String) {
             "$curTime${" ".repeat(length - curTime.length - durTime.length + 2)}$durTime"
         else
             "0:0${" ".repeat(pos - 3 - halfTimeLength)}$curTime${" ".repeat(length - pos - halfTimeLength - durTime.length + 2)}$durTime"
+
         return """
-        ::| $text
+        ::> $text
         ::```
         ::$progressbar
         ::$time
