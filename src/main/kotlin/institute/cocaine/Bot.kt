@@ -1,12 +1,14 @@
 package institute.cocaine
 
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
+import dev.minn.jda.ktx.CoroutineEventListener
 import dev.minn.jda.ktx.Embed
 import dev.minn.jda.ktx.Message
 import dev.minn.jda.ktx.await
@@ -18,21 +20,26 @@ import dev.minn.jda.ktx.interactions.updateCommands
 import dev.minn.jda.ktx.listener
 import dev.minn.jda.ktx.onCommand
 import institute.cocaine.audio.SendHandler
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.AudioChannel
-import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.VoiceChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 import java.time.OffsetDateTime
-import java.util.*
+import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.startCoroutine
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -43,6 +50,7 @@ class Bot(private val token: String) {
     private var playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
 
     private val players = HashMapPutDefault(playerManager)
+    private var stopUpdating = false
 
     init {
         AudioSourceManagers.registerLocalSource(playerManager)
@@ -63,7 +71,7 @@ class Bot(private val token: String) {
                     option<Int>("amount", "the amount of songs to skip")
                 }
                 slash("seek", "Jumps to a (relative or absolute) position inside of the track") {
-                    option<String>("position", "signs for relative seeking, non for absolute")
+                    option<String>("position", "signs for relative seeking, non for absolute", true)
                     // TODO: do this
                 }
                 slash("play", "Plays a song from the internet, or optionally a local file.") {
@@ -213,8 +221,16 @@ class Bot(private val token: String) {
             if (!dm) {
                 event.reply(Message {
                     content = track?.asInfo() ?: "Nothing rn, queue something bish"
-                    allowedMentionTypes = EnumSet.noneOf(Message.MentionType::class.java)
-                }).queue()
+                }).queue {
+                    GlobalScope.launch {
+                        val listener = jda.listener<MessageReceivedEvent> { listenerEvent ->
+                            if (event.channel != listenerEvent.channel ) return@listener
+                            stopUpdating = true
+                        }
+                        delay(10_000)
+                        updateProgressBar(it, players[event.guild!!.idLong].audioPlayer, listener)
+                    }
+                }
             } else {
                 event.deferReply(true).setContent("Information has been sent!").queue()
                 event.user.openPrivateChannel().flatMap {
@@ -224,6 +240,11 @@ class Bot(private val token: String) {
                     })
                 }.queue()
             }
+        }
+
+        jda.onCommand("dice") { event ->
+            val sites = event.getOption("sites")?.asLong ?: 6L
+            event.reply("You rolled a ${ThreadLocalRandom.current().nextLong(sites) + 1} with your $sites sided dice!")
         }
     }
 
@@ -253,6 +274,20 @@ class Bot(private val token: String) {
     private fun leaveVC(event: GenericCommandInteractionEvent, vc: AudioChannel) {
         event.reply("> Left ${vc.asMention}").queue()
         vc.guild.audioManager.closeAudioConnection()
+    }
+
+    private fun updateProgressBar(hook: InteractionHook, player: AudioPlayer, listener: CoroutineEventListener) {
+        if (stopUpdating || player.playingTrack == null) {
+            stopUpdating = false
+            hook.jda.removeEventListener(listener)
+            return
+        }
+        val track = player.playingTrack
+        hook.editOriginal(Message {
+            content = track?.asInfo() ?: "Nothing rn, queue something bish"
+        }).queueAfter(15, TimeUnit.SECONDS) {
+            updateProgressBar(hook, player, listener)
+        }
     }
 
     object AudioLoader: AudioLoadResultHandler {
@@ -293,14 +328,41 @@ class Bot(private val token: String) {
         val author = info.author
         val length = (title.length + 3 + author.length + 7 + 6).coerceIn(20, if (isEmbed) 50 else 100)
         val text = "[$title](<$uri>) by `$author` until <t:${(System.currentTimeMillis() + duration - position) / 1000}:t>"
-        val (progressbar, pos) = makeProgressbar(position.toFloat() / duration, length)
+        val (progressbar, pos) = makeProgressbar(position.toFloat() / duration, length, info.isStream)
         val curTime = position.toTime()
         val halfTimeLength = (curTime.length.toFloat() / 2)
         val durTime = duration.toTime()
-        val time = if (pos < (3 + halfTimeLength))
-            "\u001B[35m$curTime${" ".repeat(length - curTime.length - durTime.length + 2)}\u001B[37m$durTime"
-        else
-            "\u001B[37m:0${" ".repeat(pos - 2 - halfTimeLength.ceil())}\u001B[35m$curTime${" ".repeat(length - pos - halfTimeLength.floor() - durTime.length + 2)}\u001B[37m$durTime"
+        val time = when {
+            info.isStream -> "\u001B[33m⌊\u001B[35m${" ".repeat(pos - 1)}\u001B[35m\u221E${" ".repeat(pos)}\u001B[33m⌋"
+            (pos < (2 + halfTimeLength)) ->
+                buildString(4*5 + 2 + length) {
+                    append("\u001B[33m⌊\u001B[35m")
+                    append(curTime)
+                    append(" ".repeat(length - curTime.length - durTime.length + 1))
+                    append("\u001B[37m")
+                    append(durTime)
+                    append("\u001B[33m⌋")
+                }
+            (pos > (length - durTime.length - halfTimeLength.ceil())) ->
+                buildString(4*5 + 3 + length) {
+                    append("\u001B[33m⌊\u001B[37m0")
+                    append(" ".repeat(length - curTime.length - 1))
+                    append("\u001B[35m")
+                    append(curTime)
+                    append("\u001B[33m⌋")
+                }
+            else ->
+                buildString(5*5 + 2 + length) {
+                    append("\u001B[33m⌊\u001B[37m0")
+                    append(" ".repeat(pos - halfTimeLength.ceil()))
+                    append("\u001B[35m")
+                    append(curTime)
+                    append(" ".repeat(length - pos - halfTimeLength.floor() - durTime.length - 1))
+                    append("\u001B[37m")
+                    append(durTime)
+                    append("\u001B[33m⌋")
+                }
+        }
 
         return """
         ::> $text
@@ -311,11 +373,21 @@ class Bot(private val token: String) {
         """.trimMargin("::")
     }
 
-    private fun makeProgressbar(progress: Float, width: Int = 20): Pair<String, Int> {
+    private fun makeProgressbar(progress: Float, width: Int = 20, isSteam: Boolean): Pair<String, Int> {
+        if (isSteam)
+            return "\u001B[33m⌈${" ".repeat((width / 2) -1)}\u001B[35m\u221E${" ".repeat((width / 2))}\u001B[33m⌉" to (width / 2)
         val fullchars = (progress * width).floor()
         val a = ">"
         val emptychars = width - fullchars - 1
-        return "\u001B[33m[\u001B[32m${"#".repeat(fullchars)}\u001B[35m$a\u001B[34m${"-".repeat(emptychars)}\u001B[33m]" to (fullchars + 2)
+        return buildString(5 * 5 + 2 + width) {
+            append("\u001B[33m⌈\u001B[32m")
+            append("#".repeat(fullchars))
+            append("\u001B[35m")
+            append(a)
+            append("\u001B[34m")
+            append("-".repeat(emptychars))
+            append("\u001B[33m⌉")
+        } to (fullchars)
     }
 
     private fun Long.toTime(): String {
