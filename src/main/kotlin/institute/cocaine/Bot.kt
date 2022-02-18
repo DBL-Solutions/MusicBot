@@ -9,6 +9,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.minn.jda.ktx.Embed
 import dev.minn.jda.ktx.Message
+import dev.minn.jda.ktx.await
 import dev.minn.jda.ktx.injectKTX
 import dev.minn.jda.ktx.interactions.choice
 import dev.minn.jda.ktx.interactions.option
@@ -30,6 +31,7 @@ import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
+import java.time.OffsetDateTime
 import java.util.*
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -38,7 +40,7 @@ import kotlin.math.floor
 class Bot(private val token: String) {
     private val jda: JDA = JDABuilder.createDefault(this.token).enableCache(CacheFlag.VOICE_STATE)
         .enableIntents(GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_EMOJIS).injectKTX().build()
-    var playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
+    private var playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
 
     private val players = HashMapPutDefault(playerManager)
 
@@ -166,8 +168,8 @@ class Bot(private val token: String) {
         jda.onCommand("clean") { event ->
             val textChannel = event.textChannel
 
-            textChannel.iterableHistory.takeWhileAsync {
-                it.author == jda.selfUser
+            textChannel.iterableHistory.takeAsync(320).thenApply { list ->
+                list.filter { it.author == jda.selfUser && it.timeCreated.isAfter(OffsetDateTime.now().minusWeeks(2)) }
             }.thenAccept {
                 textChannel.purgeMessages(it)
             }
@@ -225,12 +227,12 @@ class Bot(private val token: String) {
         }
     }
 
-    private fun joinVC(event: GenericCommandInteractionEvent, vc: AudioChannel) {
+    private suspend fun joinVC(event: GenericCommandInteractionEvent, vc: AudioChannel) {
         val audioManager = vc.guild.audioManager
         audioManager.openAudioConnection(vc)
-        val sendHandler = players[vc.guild.idLong].acceptEvent(event)
+        val idToRef = event.deferReply().setContent("> Successfully joined you in ${vc.asMention}").await().retrieveOriginal().await().idLong
+        val sendHandler = players[vc.guild.idLong].acceptEvent(event, event.messageChannel.idLong, idToRef)
         audioManager.sendingHandler = sendHandler
-        event.deferReply().setContent("> Successfully joined you in ${vc.asMention}").queue()
         playerManager.loadItem("./neutral_con.mp3", object: AudioLoadResultHandler {
             override fun trackLoaded(track: AudioTrack) {
                 players[vc.guild.idLong].audioPlayer.startTrack(track, false)
@@ -289,22 +291,22 @@ class Bot(private val token: String) {
         val title = info.title
         val uri = info.uri
         val author = info.author
-        val length = (title.length + 4 + author.length + 7 + 6).coerceIn(20, if (isEmbed) 50 else 100)
-        val text = "[$title](<$uri>) by `$author` until <t:${(System.currentTimeMillis() + duration) / 1000}:t>"
+        val length = (title.length + 3 + author.length + 7 + 6).coerceIn(20, if (isEmbed) 50 else 100)
+        val text = "[$title](<$uri>) by `$author` until <t:${(System.currentTimeMillis() + duration - position) / 1000}:t>"
         val (progressbar, pos) = makeProgressbar(position.toFloat() / duration, length)
         val curTime = position.toTime()
-        val halfTimeLength = (curTime.length.toFloat() / 2).ceil()
+        val halfTimeLength = (curTime.length.toFloat() / 2)
         val durTime = duration.toTime()
-        val time = if (pos < (4 + halfTimeLength))
-            "$curTime${" ".repeat(length - curTime.length - durTime.length + 2)}$durTime"
+        val time = if (pos < (3 + halfTimeLength))
+            "\u001B[35m$curTime${" ".repeat(length - curTime.length - durTime.length + 2)}\u001B[37m$durTime"
         else
-            "0:0${" ".repeat(pos - 3 - halfTimeLength)}$curTime${" ".repeat(length - pos - halfTimeLength - durTime.length + 2)}$durTime"
+            "\u001B[37m:0${" ".repeat(pos - 2 - halfTimeLength.ceil())}\u001B[35m$curTime${" ".repeat(length - pos - halfTimeLength.floor() - durTime.length + 2)}\u001B[37m$durTime"
 
         return """
         ::> $text
-        ::```
-        ::$progressbar
-        ::$time
+        ::```ansi
+        ::[40m$progressbar[0m
+        ::[40m$time[0m
         ::```
         """.trimMargin("::")
     }
@@ -313,7 +315,7 @@ class Bot(private val token: String) {
         val fullchars = (progress * width).floor()
         val a = ">"
         val emptychars = width - fullchars - 1
-        return "[${"#".repeat(fullchars)}$a${"-".repeat(emptychars)}]" to (fullchars + 2)
+        return "\u001B[33m[\u001B[32m${"#".repeat(fullchars)}\u001B[35m$a\u001B[34m${"-".repeat(emptychars)}\u001B[33m]" to (fullchars + 2)
     }
 
     private fun Long.toTime(): String {

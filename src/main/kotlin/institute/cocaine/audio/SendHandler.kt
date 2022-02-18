@@ -27,8 +27,8 @@ data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
         return true
     }
 
-    fun acceptEvent(event: GenericCommandInteractionEvent): SendHandler {
-        scheduler.acceptEvent(event)
+    fun acceptEvent(event: GenericCommandInteractionEvent, channelID: Long = 0, idToRef: Long = 0L): SendHandler {
+        scheduler.acceptEvent(event, channelID, idToRef)
         return this
     }
 }

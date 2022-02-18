@@ -4,6 +4,9 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason
+import dev.minn.jda.ktx.Embed
+import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.entities.MessageChannel
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import java.util.LinkedList
@@ -11,18 +14,24 @@ import java.util.LinkedList
 class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() {
 
     private enum class PlayerState(val format: String) {
-        PAUSE("Paused playing [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
-        RESUME("Resuming [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
-        PLAY("Playing [%s](<%s>) (%#.3fs long)"),
-        ENQUEUE("Added [%s](<%s>) (%#.3fs long) to the queue at pos #%d (approx. in %s)");
+        PAUSE("\\|\\| Paused playing [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
+        RESUME("\\|> Resuming [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
+        PLAY("> ~ Playing [%s](<%s>) (%#.3fs long)"),
+        ENQUEUE("> + Added [%s](<%s>) (%#.3fs long) to the queue at pos #%d (approx. in %s)");
 
         fun format(vararg args: Any?) = format.format(*args)
     }
 
+    private lateinit var jda: JDA
     private lateinit var hook: InteractionHook
+    private var chanId: Long = 0
+    private var idToRef: Long = 0
     val queue = LinkedList<AudioTrack>()
-    fun acceptEvent(event: GenericCommandInteractionEvent) {
+    fun acceptEvent(event: GenericCommandInteractionEvent, channelId: Long, idToRef: Long) {
         this.hook = event.hook
+        this.jda = event.jda
+        this.chanId = channelId
+        this.idToRef = idToRef
     }
 
     override fun onPause(player: AudioPlayer) {
@@ -60,21 +69,43 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         // Audio track has been unable to provide us any audio, might want to just start a new track
     }
 
-    private fun logMessageToHook(track: AudioTrack, playerState: PlayerState) {
+    private fun logMessageToHook(track: AudioTrack?, playerState: PlayerState) {
+        if (track == null) {
+            val str = "hmm track to log was null but ${playerState.name} has been performed"
+            if (hook.isExpired) {
+                jda.getTextChannelById(chanId)!!.sendMessage(str).queue()
+            } else {
+                hook.sendMessage(str).queue()
+            }
+            return
+        }
         val title = track.info.title
         val uri = track.info.uri
         val pos = audioPlayer.playingTrack?.position?.toFloat()?.div(1000)
         val dur = track.duration.toFloat() / 1000
         val perc = (100) * (pos?.div(dur) ?: 1f)
-        val playsIn = queue.sumOf { it.duration } + audioPlayer.playingTrack.duration
+        val playsIn = queue.sumOf { it.duration } + (audioPlayer.playingTrack?.duration ?: 0L)
 
-        val action = when (playerState) {
-            PlayerState.PAUSE -> hook.sendMessage(PlayerState.PAUSE.format(title, uri, pos, dur, perc))
-            PlayerState.RESUME -> hook.sendMessage(PlayerState.RESUME.format(title, uri, pos, dur, perc))
-            PlayerState.PLAY -> hook.sendMessage(PlayerState.PLAY.format(title, uri, dur))
-            PlayerState.ENQUEUE -> hook.sendMessage(PlayerState.ENQUEUE.format(title, uri, dur, queue.size + 1, playsIn.toTime()))
+        if (!hook.isExpired) {
+            val action = when (playerState) {
+                PlayerState.PAUSE -> hook.sendMessage(PlayerState.PAUSE.format(title, uri, pos, dur, perc))
+                PlayerState.RESUME -> hook.sendMessage(PlayerState.RESUME.format(title, uri, pos, dur, perc))
+                PlayerState.PLAY -> hook.sendMessage(PlayerState.PLAY.format(title, uri, dur))
+                PlayerState.ENQUEUE -> hook.sendMessage(PlayerState.ENQUEUE.format(title, uri, dur, queue.size + 1, playsIn.toTime()))
+            }
+            action.queue()
+        } else {
+            val channel: MessageChannel = jda.getTextChannelById(chanId)!!
+            val action = channel.sendMessageEmbeds(Embed {
+                description = when (playerState) {
+                    PlayerState.PAUSE -> PlayerState.PAUSE.format(title, uri, pos, dur, perc)
+                    PlayerState.RESUME -> PlayerState.RESUME.format(title, uri, pos, dur, perc)
+                    PlayerState.PLAY -> PlayerState.PLAY.format(title, uri, dur)
+                    PlayerState.ENQUEUE -> PlayerState.ENQUEUE.format(title, uri, dur, queue.size + 1, playsIn.toTime())
+                }
+            })
+            action.referenceById(idToRef).queue()
         }
-        action.queue()
     }
 
     @Suppress("unused")
@@ -97,6 +128,10 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     fun enqueue(track: AudioTrack) {
         logMessageToHook(track, PlayerState.ENQUEUE)
         queue.add(track)
+
+        if (audioPlayer.playingTrack == null) {
+            audioPlayer.playTrack(queue.poll())
+        }
     }
 
     private fun Long.toTime(): String {
