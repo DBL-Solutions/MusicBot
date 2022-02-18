@@ -7,6 +7,8 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
+import dev.minn.jda.ktx.Embed
+import dev.minn.jda.ktx.Message as KTXMessage
 import dev.minn.jda.ktx.injectKTX
 import dev.minn.jda.ktx.interactions.choice
 import dev.minn.jda.ktx.interactions.option
@@ -21,12 +23,17 @@ import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.AudioChannel
+import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.VoiceChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
+import java.util.*
+import kotlin.collections.HashMap
+import kotlin.math.ceil
+import kotlin.math.floor
 
 
 class Bot(private val token: String) {
@@ -48,7 +55,7 @@ class Bot(private val token: String) {
                 }
                 slash("disconnect", "Disconnects from it's current VC")
                 slash("nowplaying", "Prints the current playing song.") {
-                    option<String>("grab", "DMs you the current now playing information")
+                    option<Boolean>("grab", "DMs you the current now playing information")
                 }
                 slash("queue", "Prints the current queue.")
                 slash("skip", "Skips playing & queued tracks") {
@@ -75,7 +82,7 @@ class Bot(private val token: String) {
                 }
                 slash("clean", "Purges the channel history until a non bot message is encountered")
             }
-                .queue()
+            .queue()
         }
 
         jda.listener<GuildVoiceJoinEvent> { event ->
@@ -175,7 +182,7 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("play") { event ->
-            val runable = if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
+            val runnable = if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
                 joinVC(event, event.member!!.voiceState!!.channel!!)
                 Runnable {
                     println("Playing music now in ${event.member!!.voiceState!!.channel!!.name}")
@@ -189,7 +196,7 @@ class Bot(private val token: String) {
             playerManager.loadItem(event.getOption("url")!!.asString, AudioLoader.apply {
                 id = event.guild!!.idLong
                 this@apply.players = this@Bot.players
-                runnable = runable
+                this.runnable = runnable
             })
         }
 
@@ -197,6 +204,25 @@ class Bot(private val token: String) {
             val n = event.getOption("amount")?.asLong ?: 1L
             players[event.guild!!.idLong].scheduler.skipTracks(n.toInt())
             event.deferReply().setContent("Skipping $n tracks!").queue()
+        }
+
+        jda.onCommand("nowplaying") { event ->
+            val dm = event.getOption("grab")?.asBoolean ?: false
+            val track = players[event.guild!!.idLong].audioPlayer.playingTrack
+            if (!dm) {
+                event.reply(KTXMessage {
+                    content = track?.asInfo() ?: "Nothing rn, queue something bish"
+                    allowedMentionTypes = EnumSet.noneOf(Message.MentionType::class.java)
+                }).queue()
+            } else {
+                event.deferReply(true).setContent("Information has been sent!").queue()
+                event.user.openPrivateChannel().flatMap {
+                    it.sendMessageEmbeds(Embed {
+                        description = track?.asInfo(true) ?: "Nothing rn, queue something bish"
+                        color = event.guild?.selfMember?.colorRaw
+                    })
+                }.queue()
+            }
         }
     }
 
@@ -259,4 +285,46 @@ class Bot(private val token: String) {
             return super.get(key)!!
         }
     }
+
+    private fun AudioTrack.asInfo(isEmbed: Boolean = false): String {
+        val title = info.title
+        val uri = info.uri
+        val author = info.author
+        val length = (title.length + 4 + author.length + 7 + 6).coerceIn(20, if (isEmbed) 50 else 100)
+        val text = "[$title](<$uri>) by $author until <t:${(System.currentTimeMillis() + duration) / 1000}:t>"
+        val (progressbar, pos) = makeProgressbar(position.toFloat() / duration, length)
+        val curTime = position.toTime()
+        val halfTimeLength = (curTime.length.toFloat() / 2).ceil()
+        val durTime = duration.toTime()
+        val time = if (pos < (4 + halfTimeLength))
+            "$curTime${" ".repeat(length - curTime.length - durTime.length + 2)}$durTime"
+        else
+            "0:0${" ".repeat(pos - 3 - halfTimeLength)}$curTime${" ".repeat(length - pos - halfTimeLength - durTime.length + 2)}$durTime"
+        return """
+        ::| $text
+        ::```
+        ::$progressbar
+        ::$time
+        ::```
+        """.trimMargin("::")
+    }
+
+    private fun makeProgressbar(progress: Float, width: Int = 20): Pair<String, Int> {
+        val fullchars = (progress * width).floor()
+        val a = ">"
+        val emptychars = width - fullchars - 1
+        return "[${"#".repeat(fullchars)}$a${"-".repeat(emptychars)}]" to (fullchars + 2)
+    }
+
+    private fun Long.toTime(): String {
+        val hconv = (60 * 60 * 1000)
+        val mconv = (60 * 1000)
+        val hours = this / hconv
+        val min = (this - hours * hconv) / mconv
+        val  s = (this - hours * hconv - min * mconv) / 1000
+        return "" + (if (hours > 0) "$hours:" else "") + (if (min > 0) "$min:" else "") + s
+    }
+
+    private fun Float.ceil(): Int = ceil(this).toInt()
+    private fun Float.floor(): Int = floor(this).toInt()
 }
