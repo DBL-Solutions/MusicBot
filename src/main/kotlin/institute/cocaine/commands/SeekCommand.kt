@@ -5,14 +5,19 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 import net.dv8tion.jda.api.interactions.commands.OptionType
 
 object SeekCommand : Command(), SuggestionProviding {
+
+    val POS = SuggestionProviding.Argument("position", OptionType.STRING)
+
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
-        event.reply("comming soon:tm:!")
+        event.reply("comming soon:tm:!").queue()
     }
 
-    override var argHistory: MutableMap<String, Pair<OptionType, MutableList<*>>> =
-        mutableMapOf()
+    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableSet<SuggestionProviding.Value<*>>> =
+        mutableMapOf(POS to mutableSetOf())
+
+    override var suggesttionArgs: Array<String> = arrayOf(POS.name)
 
     override fun handleSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
-        TODO("Not yet implemented")
+        event.replyChoiceStrings("not yet...").queue()
     }
 }

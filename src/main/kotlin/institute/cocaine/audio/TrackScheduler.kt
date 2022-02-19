@@ -6,11 +6,14 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason
 import dev.minn.jda.ktx.Embed
 import dev.minn.jda.ktx.SLF4J
+import institute.cocaine.commands.PlayCommand
+import institute.cocaine.commands.SuggestionProviding
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.MessageChannel
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import java.util.LinkedList
+import java.util.concurrent.ThreadLocalRandom
 
 class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() {
 
@@ -127,12 +130,14 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     }
 
     fun enqueue(track: AudioTrack, index: Int) {
+        PlayCommand.addToHistory(PlayCommand.URL, SuggestionProviding.Value(track.info.title, track.info.uri))
         logMessageToHook(track, PlayerState.ENQUEUE)
 
-        if (index == -1) {
-            queue.add(track)
-        } else {
-            queue.add(index, track)
+        when (index) {
+             0 -> audioPlayer.startTrack(track, false)
+            -1 -> queue.add(track)
+            -2 -> queue.add(ThreadLocalRandom.current().nextInt(queue.size), track)
+            else -> queue.add(index, track)
         }
 
         if (audioPlayer.playingTrack == null) {
@@ -146,6 +151,6 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         val hours = this / hconv
         val min = (this - hours * hconv) / mconv
         val  s = (this - hours * hconv - min * mconv).toFloat() / 1000
-        return "" + (if (hours > 0) "${hours}hours " else "") + (if (min > 0) "${min}mins" else "") + "${s}s"
+        return "" + (if (hours > 0) "${hours}hours " else "") + (if (min > 0) "${min}mins " else "") + "${s}s"
     }
 }

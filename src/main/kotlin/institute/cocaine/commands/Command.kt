@@ -12,8 +12,11 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 
 sealed class Command {
 
-    lateinit var playerManager: AudioPlayerManager
-    lateinit var players: Bot.HashMapPutDefault
+    companion object {
+        lateinit var playerManager: AudioPlayerManager
+        lateinit var players: Bot.HashMapPutDefault
+    }
+
     abstract suspend fun handleSlashEvent(event: GenericCommandInteractionEvent)
 
     protected suspend fun joinVC(event: GenericCommandInteractionEvent, vc: AudioChannel) {

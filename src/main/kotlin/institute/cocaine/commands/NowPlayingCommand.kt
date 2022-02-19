@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit
 object NowPlayingCommand: Command() {
 
     private var stopUpdating = false
+    private var counter = 0
 
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         val audioPlayer = players[event.guild!!.idLong].audioPlayer
@@ -30,8 +31,8 @@ object NowPlayingCommand: Command() {
             }).queue {
                 GlobalScope.launch {
                     val listener = event.jda.listener<MessageReceivedEvent> { listenerEvent ->
-                        if (event.channel != listenerEvent.channel ) return@listener
-                        stopUpdating = true
+                        if (event.channel != listenerEvent.channel) return@listener
+                        stopUpdating = counter++ > 12
                     }
                     delay(10_000)
                     updateProgressBar(it, audioPlayer, listener)
@@ -51,6 +52,7 @@ object NowPlayingCommand: Command() {
     private fun updateProgressBar(hook: InteractionHook, player: AudioPlayer, listener: CoroutineEventListener) {
         if (stopUpdating || player.playingTrack == null) {
             stopUpdating = false
+            counter = 0
             hook.jda.removeEventListener(listener)
             return
         }
@@ -117,6 +119,7 @@ object NowPlayingCommand: Command() {
                     append("7m0")
                 }
                 append(" ".repeat(length - curTime.length - (durTime.length * front) + (1L * back)))
+                append("\u001B[3")
                 if (back) {
                     append("5m")
                     append(curTime)
@@ -159,7 +162,7 @@ object NowPlayingCommand: Command() {
     }
 
     private operator fun Int.times(bool: Boolean): Int {
-        return if (bool) this
+        return if (bool) this-1
             else 0
     }
 }

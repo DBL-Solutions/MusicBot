@@ -16,6 +16,7 @@ import dev.minn.jda.ktx.listener
 import dev.minn.jda.ktx.onCommand
 import institute.cocaine.audio.SendHandler
 import institute.cocaine.commands.CleanCommand
+import institute.cocaine.commands.Command
 import institute.cocaine.commands.DiceCommand
 import institute.cocaine.commands.JoinCommand
 import institute.cocaine.commands.NowPlayingCommand
@@ -71,16 +72,12 @@ class Bot(private val token: String) {
                     // TODO: do this
                 }
                 slash(name = "play", description = "Plays a song from the internet, or optionally a local file.") {
-                    option<String>(name = "url", description = "The content to enqueue", required = true)
+                    option<String>(name = "url", description = "The content to enqueue", required = true, autocomplete = true)
                     option<Int>(
                         name = "position",
-                        description = "Enqueueing position, where the song should be inserted"
-                    ) {
-                        choice(name = "now", value = 0L)
-                        choice(name = "top", value = 1L)
-                        choice(name = "random", value = -2L)
-                        choice(name = "last / append (default)", value = -1L)
-                    }
+                        description = "Enqueueing position, where the song should be inserted",
+                        autocomplete = true
+                    )
                 }
                 slash(name = "pause", description = "Pauses the player")
                 slash(name = "mtq", description = "Ich hab auch \"MTQ\" verstanden, anstelle von emptyqueue") // TODO: todo
@@ -130,7 +127,10 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("clean") { event ->
-            CleanCommand.handleSlashEvent(event)
+            CleanCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
         }
 
         jda.onCommand("pause") { event ->
@@ -141,22 +141,30 @@ class Bot(private val token: String) {
 
         jda.onCommand("play") { event ->
             PlayCommand.apply {
-                this@apply.playerManager = this@Bot.playerManager
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
             }.handleSlashEvent(event)
         }
 
         jda.onCommand("skip") { event ->
             SkipCommand.apply {
-                this@apply.players = this@Bot.players
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
             }.handleSlashEvent(event)
         }
 
         jda.onCommand("nowplaying") { event ->
-            NowPlayingCommand.handleSlashEvent(event)
+            NowPlayingCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
         }
 
         jda.onCommand("dice") { event ->
-            DiceCommand.handleSlashEvent(event)
+            DiceCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
         }
     }
 
