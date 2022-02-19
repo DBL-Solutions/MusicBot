@@ -19,10 +19,13 @@ object SanJoinListener {
         val member = event.member
         if (member.idLong != 198137282018934784L)
             return
+
+        if (event.guild.selfMember.voiceState!!.channel != member.voiceState!!.channel)
+            return
+
         playerManager.loadItem("./buddy_con.mp3", object: AudioLoadResultHandler {
             override fun trackLoaded(track: AudioTrack) {
                 players[event.guild.idLong].audioPlayer.startTrack(track, false)
-
             }
 
             override fun playlistLoaded(playlist: AudioPlaylist) {

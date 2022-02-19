@@ -9,7 +9,6 @@ import dev.minn.jda.ktx.SLF4J
 import institute.cocaine.commands.PlayCommand
 import institute.cocaine.commands.SuggestionProviding
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.entities.MessageChannel
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import java.util.LinkedList
@@ -74,7 +73,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         // Audio track has been unable to provide us any audio, might want to just start a new track
     }
 
-    private fun logMessageToHook(track: AudioTrack?, playerState: PlayerState) {
+    private fun logMessageToHook(track: AudioTrack?, playerState: PlayerState, count: Int = 0) {
         if (track == null) {
             val str = "hmm track to log was null but ${playerState.name} has been performed"
             if (hook.isExpired) {
@@ -89,7 +88,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         val pos = audioPlayer.playingTrack?.position?.toFloat()?.div(1000)
         val dur = track.duration.toFloat() / 1000
         val perc = (100) * (pos?.div(dur) ?: 1f)
-        val playsIn = queue.sumOf { it.duration } + (audioPlayer.playingTrack?.position ?: 0L)
+        val playsIn = if (count > 0 ) (queue.take(count).sumOf { it.duration }) else (queue.sumOf { it.duration }) + (audioPlayer.playingTrack?.position ?: 0L)
 
         if (!hook.isExpired) {
             val action = when (playerState) {
@@ -131,13 +130,13 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
 
     fun enqueue(track: AudioTrack, index: Int) {
         PlayCommand.addToHistory(PlayCommand.URL, SuggestionProviding.Value(track.info.title, track.info.uri))
-        logMessageToHook(track, PlayerState.ENQUEUE)
+        logMessageToHook(track, PlayerState.ENQUEUE, index)
 
         when (index) {
              0 -> audioPlayer.startTrack(track, false)
             -1 -> queue.add(track)
             -2 -> queue.add(ThreadLocalRandom.current().nextInt(queue.size), track)
-            else -> queue.add(index, track)
+            else -> queue.add(index-1, track)
         }
 
         if (audioPlayer.playingTrack == null) {

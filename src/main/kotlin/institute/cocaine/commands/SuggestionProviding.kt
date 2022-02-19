@@ -17,7 +17,20 @@ sealed interface SuggestionProviding {
 
     data class Argument(val name: String, val type: OptionType)
 
-    data class Value<T>(val display: String, val data: T)
+    data class Value<T>(val display: String, val data: T) {
+        fun matches(other: String): Boolean {
+            if (display.contains(other, true))
+                return true
+
+            if (data is String)
+                return data.contains(other, true)
+
+            if (data is Number)
+                return data.toString().contains(other)
+
+            return false
+        }
+    }
 
 }
 

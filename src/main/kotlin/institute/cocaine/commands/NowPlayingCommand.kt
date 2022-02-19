@@ -6,11 +6,10 @@ import dev.minn.jda.ktx.CoroutineEventListener
 import dev.minn.jda.ktx.Embed
 import dev.minn.jda.ktx.Message
 import dev.minn.jda.ktx.listener
-import institute.cocaine.commands.NowPlayingCommand.ceil
-import institute.cocaine.commands.NowPlayingCommand.floor
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import net.dv8tion.jda.api.entities.MessageChannel
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
@@ -35,7 +34,7 @@ object NowPlayingCommand: Command() {
                         stopUpdating = counter++ > 12
                     }
                     delay(10_000)
-                    updateProgressBar(it, audioPlayer, listener)
+                    updateProgressBar(it, event.messageChannel, audioPlayer, listener)
                 }
             }
         } else {
@@ -49,7 +48,7 @@ object NowPlayingCommand: Command() {
         }
     }
 
-    private fun updateProgressBar(hook: InteractionHook, player: AudioPlayer, listener: CoroutineEventListener) {
+    private fun updateProgressBar(hook: InteractionHook, channel: MessageChannel, player: AudioPlayer, listener: CoroutineEventListener, id: Long = 0) {
         if (stopUpdating || player.playingTrack == null) {
             stopUpdating = false
             counter = 0
@@ -57,10 +56,36 @@ object NowPlayingCommand: Command() {
             return
         }
         val track = player.playingTrack
-        hook.editOriginal(Message {
+        val msg = Message {
             content = track?.asInfo() ?: "Nothing rn, queue something bish"
-        }).queueAfter(15, TimeUnit.SECONDS) {
-            updateProgressBar(hook, player, listener)
+        }
+        if (!hook.isExpired) {
+            hook.editOriginal(msg).queueAfter(15, TimeUnit.SECONDS, {
+                updateProgressBar(hook, channel, player, listener)
+            }) {
+                stopUpdating = false
+                counter = 0
+                hook.jda.removeEventListener(listener)
+            }
+            return
+        }
+
+        if (id == 0L) {
+            channel.sendMessage(msg).queueAfter(15, TimeUnit.SECONDS, {
+                updateProgressBar(hook, channel, player, listener, it.idLong)
+            }) {
+                stopUpdating = false
+                counter = 0
+                channel.jda.removeEventListener(listener)
+            }
+        } else {
+            channel.editMessageById(id, msg).queueAfter(15, TimeUnit.SECONDS, {
+                updateProgressBar(hook, channel, player, listener, it.idLong)
+            }) {
+                stopUpdating = false
+                counter = 0
+                hook.jda.removeEventListener(listener)
+            }
         }
     }
 
@@ -104,7 +129,7 @@ object NowPlayingCommand: Command() {
 
     private fun makeTime(isSteam: Boolean, pos: Int, length: Int, halfTimeLength: Float, curTime: String, durTime: String): String {
         val front = pos < (2 + halfTimeLength)
-        val back = pos > (length - durTime.length - halfTimeLength.ceil())
+        val back = pos > (length - durTime.length - halfTimeLength.ceil() - 2)
         val hasTimeCollision = (front) || (back)
         if (isSteam)
             return "\u001B[33m⌊\u001B[35m${" ".repeat(pos - 1)}\u001B[35m\u221E${" ".repeat(pos)}\u001B[33m⌋"

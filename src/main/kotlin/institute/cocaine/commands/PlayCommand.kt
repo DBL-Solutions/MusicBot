@@ -43,9 +43,12 @@ object PlayCommand: Command(), SuggestionProviding {
 
     override fun handleSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
         when (event.focusedOption.name) {
-            URL.name -> event.replyChoices(
-                argHistory[URL]?.filter { it.display.contains(event.focusedOption.value, ignoreCase = true) }?.map { JDACMD.Choice(it.display, it.data as String) }?.take(25) ?: return
-            ).queue()
+            URL.name -> {
+                event.replyChoices(
+                    argHistory[URL]?.filter { it.matches(event.focusedOption.value) }
+                        ?.map { JDACMD.Choice(it.display, it.data as String) }?.take(25) ?: return
+                ).queue()
+            }
             POS.name -> {
                 val choices = mutableSetOf(
                     JDACMD.Choice("top", 1L),
