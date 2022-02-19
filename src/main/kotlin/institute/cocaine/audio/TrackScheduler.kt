@@ -126,9 +126,14 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         }
     }
 
-    fun enqueue(track: AudioTrack) {
+    fun enqueue(track: AudioTrack, index: Int) {
         logMessageToHook(track, PlayerState.ENQUEUE)
-        queue.add(track)
+
+        if (index == -1) {
+            queue.add(track)
+        } else {
+            queue.add(index, track)
+        }
 
         if (audioPlayer.playingTrack == null) {
             audioPlayer.playTrack(queue.poll())
