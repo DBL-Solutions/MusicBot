@@ -12,8 +12,8 @@ object SeekCommand : Command(), SuggestionProviding {
         event.reply("comming soon:tm:!").queue()
     }
 
-    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableSet<SuggestionProviding.Value<*>>> =
-        mutableMapOf(POS to mutableSetOf())
+    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableList<SuggestionProviding.Value<*>>> =
+        mutableMapOf(POS to mutableListOf())
 
     override var suggesttionArgs: Array<String> = arrayOf(POS.name)
 

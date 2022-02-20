@@ -20,7 +20,8 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         PAUSE("Paused playing [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
         RESUME("Resuming [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
         PLAY("Playing [%s](<%s>) (%#.3fs long)"),
-        ENQUEUE("Added [%s](<%s>) (%#.3fs long) to the queue at pos #%d (approx. in %s)");
+        ENQUEUE("Added [%s](<%s>) (%#.3fs long) to the queue at pos #%d (approx. in %s)"),
+        INFO("%s");
 
         fun format(vararg args: Any?) = format.format(*args)
     }
@@ -73,7 +74,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         // Audio track has been unable to provide us any audio, might want to just start a new track
     }
 
-    private fun logMessageToHook(track: AudioTrack?, playerState: PlayerState, count: Int = 0) {
+    private fun logMessageToHook(track: AudioTrack?, playerState: PlayerState, count: Int = 0, info: String = "") {
         if (track == null) {
             val str = "hmm track to log was null but ${playerState.name} has been performed"
             if (hook.isExpired) {
@@ -88,14 +89,16 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         val pos = audioPlayer.playingTrack?.position?.toFloat()?.div(1000)
         val dur = track.duration.toFloat() / 1000
         val perc = (100) * (pos?.div(dur) ?: 1f)
-        val playsIn = if (count > 0 ) (queue.take(count).sumOf { it.duration }) else (queue.sumOf { it.duration }) + (audioPlayer.playingTrack?.position ?: 0L)
+        val playsIn = if (count > 0) (queue.take(count).sumOf { it.duration }) else (queue.sumOf { it.duration }) + (audioPlayer.playingTrack?.position ?: 0L)
+        val qPos = if (count > 0) (count + 1) else (queue.size + 1)
 
         if (!hook.isExpired) {
             val action = when (playerState) {
                 PlayerState.PAUSE -> hook.sendMessage(PlayerState.PAUSE.format(title, uri, pos, dur, perc))
                 PlayerState.RESUME -> hook.sendMessage(PlayerState.RESUME.format(title, uri, pos, dur, perc))
                 PlayerState.PLAY -> hook.sendMessage(PlayerState.PLAY.format(title, uri, dur))
-                PlayerState.ENQUEUE -> hook.sendMessage(PlayerState.ENQUEUE.format(title, uri, dur, queue.size + 1, playsIn.toTime()))
+                PlayerState.ENQUEUE -> hook.sendMessage(PlayerState.ENQUEUE.format(title, uri, dur, qPos, playsIn.toTime()))
+                PlayerState.INFO -> hook.sendMessage(PlayerState.INFO.format(info))
             }
             action.queue()
         } else {
@@ -104,7 +107,8 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
                     PlayerState.PAUSE -> PlayerState.PAUSE.format(title, uri, pos, dur, perc)
                     PlayerState.RESUME -> PlayerState.RESUME.format(title, uri, pos, dur, perc)
                     PlayerState.PLAY -> PlayerState.PLAY.format(title, uri, dur)
-                    PlayerState.ENQUEUE -> PlayerState.ENQUEUE.format(title, uri, dur, queue.size + 1, playsIn.toTime())
+                    PlayerState.ENQUEUE -> PlayerState.ENQUEUE.format(title, uri, dur, qPos, playsIn.toTime())
+                    PlayerState.INFO -> PlayerState.INFO.format(info)
                 }
             })
             action?.referenceById(idToRef)?.queue() ?: logger.warn("channel {} was null, could not ref msg {} for logging player info", chanId, idToRef)
@@ -130,13 +134,31 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
 
     fun enqueue(track: AudioTrack, index: Int) {
         PlayCommand.addToHistory(PlayCommand.URL, SuggestionProviding.Value(track.info.title, track.info.uri))
-        logMessageToHook(track, PlayerState.ENQUEUE, index)
 
         when (index) {
-             0 -> audioPlayer.startTrack(track, false)
-            -1 -> queue.add(track)
-            -2 -> queue.add(ThreadLocalRandom.current().nextInt(queue.size), track)
-            else -> queue.add(index-1, track)
+             0 -> {
+                 audioPlayer.startTrack(track, false)
+             }
+            -1 -> {
+                logMessageToHook(track, PlayerState.ENQUEUE, index)
+                queue.add(track)
+            }
+            -2 -> {
+                val rndPos = ThreadLocalRandom.current().nextInt(queue.size)
+                logMessageToHook(track, PlayerState.ENQUEUE, rndPos)
+                queue.add(rndPos, track)
+            }
+            else -> {
+                if (index in 1 .. queue.size) {
+                    if (index != 1)
+                        PlayCommand.addToHistory(PlayCommand.POS, SuggestionProviding.Value("${index}. pos", index))
+                    logMessageToHook(track, PlayerState.ENQUEUE, index)
+                    queue.add(index - 1, track)
+                } else {
+                    logMessageToHook(track, PlayerState.ENQUEUE, count = 0, info = "The provided position was outside of the queue")
+                    queue.add(track)
+                }
+            }
         }
 
         if (audioPlayer.playingTrack == null) {

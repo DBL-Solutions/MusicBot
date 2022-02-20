@@ -33,10 +33,10 @@ object PlayCommand: Command(), SuggestionProviding {
         })
     }
 
-    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableSet<SuggestionProviding.Value<*>>> =
+    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableList<SuggestionProviding.Value<*>>> =
         mutableMapOf(
-            URL to mutableSetOf(),
-            POS to mutableSetOf()
+            URL to mutableListOf(),
+            POS to mutableListOf()
         )
 
     override var suggesttionArgs: Array<String> = arrayOf(URL.name, POS.name)
@@ -45,8 +45,11 @@ object PlayCommand: Command(), SuggestionProviding {
         when (event.focusedOption.name) {
             URL.name -> {
                 event.replyChoices(
-                    argHistory[URL]?.filter { it.matches(event.focusedOption.value) }
-                        ?.map { JDACMD.Choice(it.display, it.data as String) }?.take(25) ?: return
+                    argHistory[URL]?.
+                    filter { it.matches(event.focusedOption.value) }?.
+                    //sortedByDescending { it.uses }?.
+                    map { JDACMD.Choice(it.display, it.data as String) }?.
+                    take(25) ?: return
                 ).queue()
             }
             POS.name -> {
@@ -56,6 +59,12 @@ object PlayCommand: Command(), SuggestionProviding {
                     JDACMD.Choice("last / append (default)", -1L),
                     JDACMD.Choice("random", -2L)
                 )
+                val queueLength = Companion.players[event.guild!!.idLong].scheduler.queue.size
+                argHistory[POS]?.
+                    filter { it.matches(event.focusedOption.value) && queueLength > (it.data as Long).toInt() }?.
+                    //sortedByDescending { it.uses }?.
+                    map { JDACMD.Choice(it.display, it.data as Long) }?.
+                    take(21)?.forEach(choices::add)
                 event.replyChoices(choices).queue()
             }
         }

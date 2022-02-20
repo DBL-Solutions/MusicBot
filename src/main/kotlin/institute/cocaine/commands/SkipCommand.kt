@@ -14,9 +14,9 @@ object SkipCommand : Command(), SuggestionProviding {
         event.deferReply().setContent("Skipping $n tracks!").queue()
     }
 
-    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableSet<SuggestionProviding.Value<*>>> =
+    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableList<SuggestionProviding.Value<*>>> =
         mutableMapOf(
-            AMOUNT to mutableSetOf()
+            AMOUNT to mutableListOf()
         )
     override var suggesttionArgs: Array<String> = arrayOf(AMOUNT.name)
 

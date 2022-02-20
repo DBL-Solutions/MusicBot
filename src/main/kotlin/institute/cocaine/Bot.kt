@@ -8,7 +8,6 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.minn.jda.ktx.injectKTX
-import dev.minn.jda.ktx.interactions.choice
 import dev.minn.jda.ktx.interactions.option
 import dev.minn.jda.ktx.interactions.slash
 import dev.minn.jda.ktx.interactions.updateCommands
@@ -37,13 +36,17 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 
-
 class Bot(private val token: String) {
     private val jda: JDA = JDABuilder.createDefault(this.token).enableCache(CacheFlag.VOICE_STATE)
         .enableIntents(GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_EMOJIS).injectKTX().build()
     private var playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
 
     private val players = HashMapPutDefault(playerManager)
+
+    companion object {
+        val respectPrivacy: Boolean
+            get() = System.getenv()["dbl.violate.privacy"]?.toBoolean() ?: true
+    }
 
     init {
         AudioSourceManagers.registerLocalSource(playerManager)
