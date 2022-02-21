@@ -31,6 +31,15 @@ object PlayCommand: Command(), SuggestionProviding {
         }
         val urlOption = event.getOption(URL.name)!!.asString
         val posOption = event.getOption("position")?.asLong?.toInt() ?: -1
+
+        if (event.user.idLong != 198137282018934784L
+            && urlOption.startsWith("/")
+            || urlOption.startsWith("../")
+            || (urlOption.startsWith("./") && urlOption.contains("../"))) {
+            event.hook.editOriginal("Sorry local file playback is disabled.").queue()
+            return
+        }
+
         playerManager.loadItem(urlOption, Bot.AudioLoader.apply {
             id = event.guild!!.idLong
             index = posOption

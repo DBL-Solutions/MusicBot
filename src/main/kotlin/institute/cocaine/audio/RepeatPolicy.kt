@@ -4,7 +4,8 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import java.util.*
 
-enum class RepeatPolicy(val logInfo: String, val func: (AudioPlayer, LinkedList<AudioTrack>, AudioTrack?) -> Boolean) {
+@Suppress("UNUSED_ANONYMOUS_PARAMETER")
+enum class RepeatPolicy(val logInfo: String, private val func: (AudioPlayer, LinkedList<AudioTrack>, AudioTrack?) -> Boolean) {
     NONE("Playing back in FIFO mode.", { player, queue, track ->
         if (queue.peek() != null) {
             player.playTrack(queue.poll())

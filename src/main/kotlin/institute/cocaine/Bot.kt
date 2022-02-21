@@ -38,6 +38,7 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 
+@Suppress("UNUSED_ANONYMOUS_PARAMETER")
 class Bot(private val token: String) {
     private val jda: JDA = JDABuilder.createDefault(this.token).enableCache(CacheFlag.VOICE_STATE)
         .enableIntents(GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_EMOJIS).injectKTX().build()
@@ -96,6 +97,13 @@ class Bot(private val token: String) {
                     subcommand("none", "exits the repeat mode & enters classic fifo playback")
                     subcommand("current", "repeats the current song only")
                     subcommand("all", "repeats an entire playlist")
+                }
+                slash(name = "wipe-history", description = "Cleans all suggestions for autocomplete arguments.") {
+                    subcommand("all", "all commands")
+                    subcommand("play", "play command")
+                    subcommand("skip", "skip command")
+                    subcommand("seek", "seek command")
+                    // todo
                 }
             }.queue()
         }
@@ -232,12 +240,15 @@ class Bot(private val token: String) {
         }
 
         override fun playlistLoaded(playlist: AudioPlaylist) {
+            players[id].scheduler.info("Playlist ${playlist.name} has been loaded, but they aren't supported yet!")
         }
 
         override fun noMatches() {
+            players[id].scheduler.info("No matching track was found!")
         }
 
         override fun loadFailed(exception: FriendlyException) {
+            players[id].scheduler.info("Loading the track failed, check logs!")
             exception.printStackTrace()
         }
     }

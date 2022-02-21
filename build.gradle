@@ -1,9 +1,14 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.6.0'
     id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '6.0.0'
 }
+
+mainClassName = 'institute.cocaine.MainKt'
 group 'institute.cocaine'
-version '1.0-SNAPSHOT'
+version '1.1'
+
 sourceCompatibility = JavaVersion.VERSION_16
 targetCompatibility = JavaVersion.VERSION_16
 
