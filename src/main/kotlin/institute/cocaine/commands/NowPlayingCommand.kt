@@ -66,6 +66,7 @@ object NowPlayingCommand: Command() {
                 stopUpdating = false
                 counter = 0
                 hook.jda.removeEventListener(listener)
+                it.printStackTrace()
             }
             return
         }
@@ -77,6 +78,7 @@ object NowPlayingCommand: Command() {
                 stopUpdating = false
                 counter = 0
                 channel.jda.removeEventListener(listener)
+                it.printStackTrace()
             }
         } else {
             channel.editMessageById(id, msg).queueAfter(15, TimeUnit.SECONDS, {
@@ -85,6 +87,7 @@ object NowPlayingCommand: Command() {
                 stopUpdating = false
                 counter = 0
                 hook.jda.removeEventListener(listener)
+                it.printStackTrace()
             }
         }
     }

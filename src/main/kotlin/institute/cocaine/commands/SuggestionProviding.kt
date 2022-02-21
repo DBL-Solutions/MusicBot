@@ -2,15 +2,11 @@ package institute.cocaine.commands
 
 
 import institute.cocaine.Bot
-import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.OptionType
 
 sealed interface SuggestionProviding {
 
     var argHistory: MutableMap<Argument, MutableList<Value<*>>>
-    var suggesttionArgs: Array<String>
-
-    fun handleSuggestionEvent(event: CommandAutoCompleteInteractionEvent)
 
     fun <T> addToHistory(arg: Argument, data: Value<T>) {
         val list: MutableList<Value<*>>? = argHistory[arg]
@@ -28,6 +24,7 @@ sealed interface SuggestionProviding {
 
     data class Argument(val name: String, val type: OptionType)
 
+    @Suppress("EqualsOrHashCode")
     data class Value<T>(val display: String, val data: T) {
 
         var uses: Int = 0

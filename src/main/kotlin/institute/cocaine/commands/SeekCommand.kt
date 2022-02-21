@@ -3,6 +3,7 @@ package institute.cocaine.commands
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.OptionType
+import net.dv8tion.jda.api.interactions.commands.Command as JDACMD
 
 object SeekCommand : Command(), SuggestionProviding {
 
@@ -10,14 +11,16 @@ object SeekCommand : Command(), SuggestionProviding {
 
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         event.reply("comming soon:tm:!").queue()
+
+        // TODO: do this
     }
 
     override var argHistory: MutableMap<SuggestionProviding.Argument, MutableList<SuggestionProviding.Value<*>>> =
         mutableMapOf(POS to mutableListOf())
 
-    override var suggesttionArgs: Array<String> = arrayOf(POS.name)
+    fun handlePOSSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
+        event.replyChoices(JDACMD.Choice("not yet...", "hmm yes the todo here is made out of todo")).queue()
 
-    override fun handleSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
-        event.replyChoiceStrings("not yet...").queue()
+        // TODO: do this
     }
 }

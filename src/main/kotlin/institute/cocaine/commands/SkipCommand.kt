@@ -3,6 +3,7 @@ package institute.cocaine.commands
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.OptionType
+import net.dv8tion.jda.api.interactions.commands.Command as JDACMD
 
 object SkipCommand : Command(), SuggestionProviding {
 
@@ -18,9 +19,9 @@ object SkipCommand : Command(), SuggestionProviding {
         mutableMapOf(
             AMOUNT to mutableListOf()
         )
-    override var suggesttionArgs: Array<String> = arrayOf(AMOUNT.name)
 
-    override fun handleSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
-        TODO("Not yet implemented")
+    fun handleAMOUNTSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
+        event.replyChoices(JDACMD.Choice("autocomplete not implemented", 1L)).queue()
+        // TODO("Not yet implemented")
     }
 }

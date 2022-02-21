@@ -32,6 +32,12 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     private var chanId: Long = 0
     private var idToRef: Long = 0
     val queue = LinkedList<AudioTrack>()
+    var policy = RepeatPolicy.NONE
+        set(value) {
+            info(value.logInfo)
+            field = value
+        }
+
     fun acceptEvent(event: GenericCommandInteractionEvent, channelId: Long, idToRef: Long) {
         this.hook = event.hook
         this.jda = event.jda
@@ -55,8 +61,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         if (!endReason.mayStartNext) {
             return
         }
-        if (queue.peek() != null)
-            player.playTrack(queue.poll())
+        policy.invoke(player, queue, track)
 
         // endReason == FINISHED: A track finished or died by an exception (mayStartNext = true).
         // endReason == LOAD_FAILED: Loading of a track failed (mayStartNext = true).
@@ -70,53 +75,72 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         // An already playing track threw an exception (track end event will still be received separately)
     }
 
-    override fun onStuck(player: AudioPlayer, track: AudioTrack?, thresholdMs: Long, stackTrace: Array<StackTraceElement>) {
+    override fun onStuck(
+        player: AudioPlayer,
+        track: AudioTrack?,
+        thresholdMs: Long,
+        stackTrace: Array<StackTraceElement>
+    ) {
         // Audio track has been unable to provide us any audio, might want to just start a new track
     }
 
+    private fun log(str: String) {
+        if (hook.isExpired) {
+            jda.getTextChannelById(chanId)?.sendMessageEmbeds(Embed {
+                description = str
+            })?.referenceById(idToRef)?.queue() ?: logger.warn("channel {} null --- {}, ", chanId, str)
+        } else {
+            hook.sendMessage(str).queue()
+        }
+    }
+
     private fun logMessageToHook(track: AudioTrack?, playerState: PlayerState, count: Int = 0, info: String = "") {
-        if (track == null) {
-            val str = "hmm track to log was null but ${playerState.name} has been performed"
-            if (hook.isExpired) {
-                jda.getTextChannelById(chanId)?.sendMessage(str)?.queue() ?: logger.warn("channel {} null & palying track null", chanId)
-            } else {
-                hook.sendMessage(str).queue()
-            }
+        if (track == null && playerState == PlayerState.INFO) {
+            log(PlayerState.INFO.format(info))
             return
         }
+
+        if (track == null) {
+            val str = "hmm no track was playing but ${playerState.name} has been performed"
+            log(str)
+            return
+        }
+
         val title = track.info.title
         val uri = track.info.uri
         val pos = audioPlayer.playingTrack?.position?.toFloat()?.div(1000)
         val dur = track.duration.toFloat() / 1000
         val perc = (100) * (pos?.div(dur) ?: 1f)
-        val playsIn = if (count > 0) (queue.take(count).sumOf { it.duration }) else (queue.sumOf { it.duration }) + (audioPlayer.playingTrack?.position ?: 0L)
-        val qPos = if (count > 0) (count + 1) else (queue.size + 1)
 
-        if (!hook.isExpired) {
-            val action = when (playerState) {
-                PlayerState.PAUSE -> hook.sendMessage(PlayerState.PAUSE.format(title, uri, pos, dur, perc))
-                PlayerState.RESUME -> hook.sendMessage(PlayerState.RESUME.format(title, uri, pos, dur, perc))
-                PlayerState.PLAY -> hook.sendMessage(PlayerState.PLAY.format(title, uri, dur))
-                PlayerState.ENQUEUE -> hook.sendMessage(PlayerState.ENQUEUE.format(title, uri, dur, qPos, playsIn.toTime()))
-                PlayerState.INFO -> hook.sendMessage(PlayerState.INFO.format(info))
-            }
-            action.queue()
-        } else {
-            val action = jda.getTextChannelById(chanId)?.sendMessageEmbeds(Embed {
-                description = when (playerState) {
-                    PlayerState.PAUSE -> PlayerState.PAUSE.format(title, uri, pos, dur, perc)
-                    PlayerState.RESUME -> PlayerState.RESUME.format(title, uri, pos, dur, perc)
-                    PlayerState.PLAY -> PlayerState.PLAY.format(title, uri, dur)
-                    PlayerState.ENQUEUE -> PlayerState.ENQUEUE.format(title, uri, dur, qPos, playsIn.toTime())
-                    PlayerState.INFO -> PlayerState.INFO.format(info)
-                }
-            })
-            action?.referenceById(idToRef)?.queue() ?: logger.warn("channel {} was null, could not ref msg {} for logging player info", chanId, idToRef)
+        val playsIn =
+            if (count > 0)
+                (queue.take(count).sumOf { it.duration })
+            else
+                (queue.sumOf { it.duration }) + (audioPlayer.playingTrack?.position ?: 0L)
+
+        val qPos =
+            if (count > 0)
+                (count + 1)
+            else
+                (queue.size + 1)
+
+        val msg = when (playerState) {
+            PlayerState.PAUSE -> PlayerState.PAUSE.format(title, uri, pos, dur, perc)
+            PlayerState.RESUME -> PlayerState.RESUME.format(title, uri, pos, dur, perc)
+            PlayerState.PLAY -> PlayerState.PLAY.format(title, uri, dur)
+            PlayerState.ENQUEUE -> PlayerState.ENQUEUE.format(title, uri, dur, qPos, playsIn.toTime())
+            PlayerState.INFO -> PlayerState.INFO.format(info)
         }
+
+        log(msg)
+    }
+
+    fun info(info: String) {
+        logMessageToHook(null, PlayerState.INFO, info = info)
     }
 
     @Suppress("unused")
-    private fun skipTrack() {
+    fun skipTrack() {
         skipTracks(1)
     }
 
@@ -136,9 +160,9 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         PlayCommand.addToHistory(PlayCommand.URL, SuggestionProviding.Value(track.info.title, track.info.uri))
 
         when (index) {
-             0 -> {
-                 audioPlayer.startTrack(track, false)
-             }
+            0 -> {
+                audioPlayer.startTrack(track, false)
+            }
             -1 -> {
                 logMessageToHook(track, PlayerState.ENQUEUE, index)
                 queue.add(track)
@@ -149,13 +173,13 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
                 queue.add(rndPos, track)
             }
             else -> {
-                if (index in 1 .. queue.size) {
+                if (index in 1..queue.size) {
                     if (index != 1)
                         PlayCommand.addToHistory(PlayCommand.POS, SuggestionProviding.Value("${index}. pos", index))
                     logMessageToHook(track, PlayerState.ENQUEUE, index)
                     queue.add(index - 1, track)
                 } else {
-                    logMessageToHook(track, PlayerState.ENQUEUE, count = 0, info = "The provided position was outside of the queue")
+                    logMessageToHook(track, PlayerState.ENQUEUE, 0, "The provided position was outside of the queue")
                     queue.add(track)
                 }
             }
@@ -171,7 +195,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         val mconv = 60000
         val hours = this / hconv
         val min = (this - hours * hconv) / mconv
-        val  s = (this - hours * hconv - min * mconv).toFloat() / 1000
+        val   s = (this - hours * hconv - min * mconv).toFloat() / 1000
         return "" + (if (hours > 0) "${hours}hours " else "") + (if (min > 0) "${min}mins " else "") + "${s}s"
     }
 }

@@ -10,9 +10,11 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.minn.jda.ktx.injectKTX
 import dev.minn.jda.ktx.interactions.option
 import dev.minn.jda.ktx.interactions.slash
+import dev.minn.jda.ktx.interactions.subcommand
 import dev.minn.jda.ktx.interactions.updateCommands
 import dev.minn.jda.ktx.listener
 import dev.minn.jda.ktx.onCommand
+import dev.minn.jda.ktx.onCommandAutocomplete
 import institute.cocaine.audio.SendHandler
 import institute.cocaine.commands.CleanCommand
 import institute.cocaine.commands.Command
@@ -20,8 +22,9 @@ import institute.cocaine.commands.DiceCommand
 import institute.cocaine.commands.JoinCommand
 import institute.cocaine.commands.NowPlayingCommand
 import institute.cocaine.commands.PlayCommand
+import institute.cocaine.commands.RepeatCommand
+import institute.cocaine.commands.SeekCommand
 import institute.cocaine.commands.SkipCommand
-import institute.cocaine.listener.ArgSuggestListener
 import institute.cocaine.listener.SanJoinListener
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
@@ -31,7 +34,6 @@ import net.dv8tion.jda.api.entities.AudioChannel
 import net.dv8tion.jda.api.entities.VoiceChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent
-import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.utils.cache.CacheFlag
@@ -62,7 +64,7 @@ class Bot(private val token: String) {
                 slash(name = "nowplaying", description = "Prints the current playing song.") {
                     option<Boolean>("grab", "DMs you the current information")
                 }
-                slash(name = "queue", description = "Prints the current queue.")
+                slash(name = "queue", description = "Prints the current queue.") // todo
                 slash(name = "skip", description = "Skips playing & queued tracks") {
                     option<Int>(name = "amount", description = "the amount of songs to skip")
                 }
@@ -70,7 +72,8 @@ class Bot(private val token: String) {
                     option<String>(
                         name = "position",
                         description = "signs for relative seeking, non for absolute",
-                        required = true
+                        required = true,
+                        autocomplete = true
                     )
                     // TODO: do this
                 }
@@ -89,6 +92,11 @@ class Bot(private val token: String) {
                     // TODO: option<String>("equation",)
                 }
                 slash(name = "clean", description = "Purges the channel history until a non bot message is encountered")
+                slash(name = "repeat", description = "Repeats either the current song or the entire queue") {
+                    subcommand("none", "exits the repeat mode & enters classic fifo playback")
+                    subcommand("current", "repeats the current song only")
+                    subcommand("all", "repeats an entire playlist")
+                }
             }.queue()
         }
 
@@ -99,12 +107,11 @@ class Bot(private val token: String) {
             }.handleEvent(event)
         }
 
-        jda.listener<CommandAutoCompleteInteractionEvent> { event ->
-            ArgSuggestListener.handleEvent(event)
-        }
-
         jda.onCommand("join") { event ->
-            JoinCommand.handleSlashEvent(event)
+            JoinCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
         }
 
         jda.onCommand("disconnect") { event ->
@@ -148,12 +155,21 @@ class Bot(private val token: String) {
                 Command.players = this@Bot.players
             }.handleSlashEvent(event)
         }
+        jda.onCommandAutocomplete("play", PlayCommand.URL.name) { event ->
+            PlayCommand.handleURLSuggestion(event)
+        }
+        jda.onCommandAutocomplete("play", PlayCommand.POS.name) { event ->
+            PlayCommand.handlePOSSuggestion(event)
+        }
 
         jda.onCommand("skip") { event ->
             SkipCommand.apply {
                 Command.playerManager = this@Bot.playerManager
                 Command.players = this@Bot.players
             }.handleSlashEvent(event)
+        }
+        jda.onCommandAutocomplete("skip", SkipCommand.AMOUNT.name) { event ->
+            SkipCommand.handleAMOUNTSuggestionEvent(event)
         }
 
         jda.onCommand("nowplaying") { event ->
@@ -168,6 +184,31 @@ class Bot(private val token: String) {
                 Command.playerManager = this@Bot.playerManager
                 Command.players = this@Bot.players
             }.handleSlashEvent(event)
+        }
+
+        jda.onCommand("seek") { event ->
+            SeekCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
+        }
+        jda.onCommandAutocomplete("seek", SeekCommand.POS.name) { event ->
+            SeekCommand.handlePOSSuggestionEvent(event)
+        }
+
+        jda.onCommand("repeat") { event ->
+            RepeatCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
+        }
+
+        jda.onCommand("queue") { event ->
+            // TODO
+        }
+
+        jda.onCommand("mtq") { event ->
+            // TODO
         }
     }
 

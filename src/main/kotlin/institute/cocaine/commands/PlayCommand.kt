@@ -11,6 +11,12 @@ object PlayCommand: Command(), SuggestionProviding {
     val URL = SuggestionProviding.Argument("url", OptionType.STRING)
     val POS = SuggestionProviding.Argument("position", OptionType.INTEGER)
 
+    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableList<SuggestionProviding.Value<*>>> =
+        mutableMapOf(
+            URL to mutableListOf(),
+            POS to mutableListOf()
+        )
+
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         val runnable = if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
             joinVC(event, event.member!!.voiceState!!.channel!!)
@@ -33,40 +39,36 @@ object PlayCommand: Command(), SuggestionProviding {
         })
     }
 
-    override var argHistory: MutableMap<SuggestionProviding.Argument, MutableList<SuggestionProviding.Value<*>>> =
-        mutableMapOf(
-            URL to mutableListOf(),
-            POS to mutableListOf()
+    fun handleURLSuggestion(event: CommandAutoCompleteInteractionEvent) {
+        var toReply = argHistory[URL]?.filter { it.matches(event.focusedOption.value) }
+
+        if (!Bot.respectPrivacy)
+            toReply = toReply?.sortedByDescending { it.uses }
+
+        event.replyChoices(toReply?.
+            map { JDACMD.Choice(it.display, it.data as String) }?.
+            take(25) ?: return
+        ).queue()
+    }
+
+    fun handlePOSSuggestion(event: CommandAutoCompleteInteractionEvent) {
+        val choices = mutableSetOf(
+            JDACMD.Choice("top", 1L),
+            JDACMD.Choice("now", 0L),
+            JDACMD.Choice("last / append (default)", -1L),
+            JDACMD.Choice("random", -2L)
         )
 
-    override var suggesttionArgs: Array<String> = arrayOf(URL.name, POS.name)
+        val queueLength = Companion.players[event.guild!!.idLong].scheduler.queue.size
+        var toAdd = argHistory[POS]?.
+        filter { it.matches(event.focusedOption.value) && queueLength > (it.data as Long).toInt() }
 
-    override fun handleSuggestionEvent(event: CommandAutoCompleteInteractionEvent) {
-        when (event.focusedOption.name) {
-            URL.name -> {
-                event.replyChoices(
-                    argHistory[URL]?.
-                    filter { it.matches(event.focusedOption.value) }?.
-                    //sortedByDescending { it.uses }?.
-                    map { JDACMD.Choice(it.display, it.data as String) }?.
-                    take(25) ?: return
-                ).queue()
-            }
-            POS.name -> {
-                val choices = mutableSetOf(
-                    JDACMD.Choice("top", 1L),
-                    JDACMD.Choice("now", 0L),
-                    JDACMD.Choice("last / append (default)", -1L),
-                    JDACMD.Choice("random", -2L)
-                )
-                val queueLength = Companion.players[event.guild!!.idLong].scheduler.queue.size
-                argHistory[POS]?.
-                    filter { it.matches(event.focusedOption.value) && queueLength > (it.data as Long).toInt() }?.
-                    //sortedByDescending { it.uses }?.
-                    map { JDACMD.Choice(it.display, it.data as Long) }?.
-                    take(21)?.forEach(choices::add)
-                event.replyChoices(choices).queue()
-            }
-        }
+        if (!Bot.respectPrivacy)
+            toAdd = toAdd?.sortedByDescending { it.uses }
+
+        toAdd?.map { JDACMD.Choice(it.display, it.data as Long) }?.
+        take(21)?.forEach(choices::add)
+
+        event.replyChoices(choices).queue()
     }
 }
