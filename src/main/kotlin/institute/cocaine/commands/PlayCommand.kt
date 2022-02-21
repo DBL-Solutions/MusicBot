@@ -19,7 +19,7 @@ object PlayCommand: Command(), SuggestionProviding {
 
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         val runnable = if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
-            joinVC(event, event.member!!.voiceState!!.channel!!)
+            joinVC(event, event.member!!.voiceState!!.channel!!, event.textChannel)
             Runnable {
                 println("Playing music now in ${event.member!!.voiceState!!.channel!!.name}")
             }

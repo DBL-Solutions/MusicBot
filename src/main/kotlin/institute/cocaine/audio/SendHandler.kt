@@ -3,12 +3,13 @@ package institute.cocaine.audio
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame
 import net.dv8tion.jda.api.audio.AudioSendHandler
+import net.dv8tion.jda.api.entities.TextChannel
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import java.nio.ByteBuffer
 
 
-data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
-    val scheduler = TrackScheduler(audioPlayer)
+data class SendHandler(val audioPlayer: AudioPlayer, val channel: TextChannel) : AudioSendHandler {
+    val scheduler = TrackScheduler(audioPlayer, channel)
     init {
         audioPlayer.addListener(scheduler)
     }
@@ -27,8 +28,8 @@ data class SendHandler(val audioPlayer: AudioPlayer) : AudioSendHandler {
         return true
     }
 
-    fun acceptEvent(event: GenericCommandInteractionEvent, channelID: Long = 0, idToRef: Long = 0L): SendHandler {
-        scheduler.acceptEvent(event, channelID, idToRef)
+    fun acceptEvent(event: GenericCommandInteractionEvent, idToRef: Long = 0L): SendHandler {
+        scheduler.acceptEvent(event, idToRef)
         return this
     }
 }

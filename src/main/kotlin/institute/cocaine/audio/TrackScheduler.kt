@@ -6,15 +6,17 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason
 import dev.minn.jda.ktx.Embed
 import dev.minn.jda.ktx.SLF4J
+import dev.minn.jda.ktx.ref
 import institute.cocaine.commands.PlayCommand
 import institute.cocaine.commands.SuggestionProviding
 import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.entities.TextChannel
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import java.util.LinkedList
 import java.util.concurrent.ThreadLocalRandom
 
-class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() {
+class TrackScheduler(private val audioPlayer: AudioPlayer, txtChannel: TextChannel): AudioEventAdapter() {
 
     private enum class PlayerState(val format: String) {
         PAUSE("Paused playing [%s](<%s>) at (%#.3f/%#.3f [%#.2f%%])"),
@@ -29,7 +31,7 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
     private val logger by SLF4J
     private lateinit var jda: JDA
     private lateinit var hook: InteractionHook
-    private var chanId: Long = 0
+    private val channel: TextChannel by txtChannel.ref()
     private var idToRef: Long = 0
     val queue = LinkedList<AudioTrack>()
     var policy = RepeatPolicy.NONE
@@ -38,10 +40,9 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
             field = value
         }
 
-    fun acceptEvent(event: GenericCommandInteractionEvent, channelId: Long, idToRef: Long) {
+    fun acceptEvent(event: GenericCommandInteractionEvent, idToRef: Long) {
         this.hook = event.hook
         this.jda = event.jda
-        this.chanId = channelId
         this.idToRef = idToRef
     }
 
@@ -61,7 +62,9 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
         if (!endReason.mayStartNext) {
             return
         }
-        policy.invoke(player, queue, track)
+        if (!policy.invoke(player, queue, track)) {
+            return
+        }
 
         // endReason == FINISHED: A track finished or died by an exception (mayStartNext = true).
         // endReason == LOAD_FAILED: Loading of a track failed (mayStartNext = true).
@@ -86,9 +89,9 @@ class TrackScheduler(private val audioPlayer: AudioPlayer): AudioEventAdapter() 
 
     private fun log(str: String) {
         if (hook.isExpired) {
-            jda.getTextChannelById(chanId)?.sendMessageEmbeds(Embed {
+            channel.sendMessageEmbeds(Embed {
                 description = str
-            })?.referenceById(idToRef)?.queue() ?: logger.warn("channel {} null --- {}, ", chanId, str)
+            }).referenceById(idToRef).queue()
         } else {
             hook.sendMessage(str).queue()
         }

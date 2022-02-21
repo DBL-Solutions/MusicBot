@@ -31,7 +31,7 @@ object JoinCommand: Command() {
         if (member.hasPermission(channel, Permission.VOICE_CONNECT)
             && guild.selfMember.hasPermission(channel, Permission.VOICE_CONNECT)
         ) {
-            joinVC(event, channel)
+            joinVC(event, channel, event.textChannel)
             return
         }
         event.reply("Can't connect").queue()

@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.entities.AudioChannel
+import net.dv8tion.jda.api.entities.TextChannel
 import net.dv8tion.jda.api.entities.VoiceChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent
@@ -44,7 +45,7 @@ class Bot(private val token: String) {
         .enableIntents(GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_EMOJIS).injectKTX().build()
     private var playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
 
-    private val players = HashMapPutDefault(playerManager)
+    private val players = HashMapPutDefault(playerManager, jda)
 
     companion object {
         val respectPrivacy: Boolean
@@ -126,7 +127,7 @@ class Bot(private val token: String) {
             event.guild?.selfMember?.voiceState?.channel?.let {
                 playerManager.loadItem("./neutral_kick.mp3", object: AudioLoadResultHandler {
                     override fun trackLoaded(track: AudioTrack) {
-                        players[event.guild!!.idLong].audioPlayer.startTrack(track, false)
+                        players[event.guild!!.idLong to event.textChannel].audioPlayer.startTrack(track, false)
                     }
 
                     override fun playlistLoaded(playlist: AudioPlaylist) {
@@ -152,7 +153,7 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("pause") { event ->
-            val sendHandler = players[event.guild!!.idLong].acceptEvent(event)
+            val sendHandler = players[event.guild!!.idLong to event.textChannel].acceptEvent(event)
             sendHandler.audioPlayer.isPaused = !sendHandler.audioPlayer.isPaused
             event.deferReply().queue()
         }
@@ -253,14 +254,23 @@ class Bot(private val token: String) {
         }
     }
 
-    class HashMapPutDefault(private val playerManager: AudioPlayerManager): HashMap<Long, SendHandler>() {
+    class HashMapPutDefault(private val playerManager: AudioPlayerManager, private val jda: JDA): HashMap<Long, SendHandler>() {
         override fun get(key: Long): SendHandler {
             if (!containsKey(key)) {
-                val temp = SendHandler(playerManager.createPlayer())
+                val temp = SendHandler(playerManager.createPlayer(), jda.getTextChannelById(806619937904787496L)!!)
                 put(key, temp)
                 return temp
             }
             return super.get(key)!!
+        }
+
+        operator fun get(pair: Pair<Long, TextChannel>): SendHandler {
+            if (!containsKey(pair.first)) {
+                val temp = SendHandler(playerManager.createPlayer(), pair.second)
+                put(pair.first, temp)
+                return temp
+            }
+            return super.get(pair.first)!!
         }
     }
 }
