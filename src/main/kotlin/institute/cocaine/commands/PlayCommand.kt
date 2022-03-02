@@ -18,16 +18,10 @@ object PlayCommand: Command(), SuggestionProviding {
         )
 
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
-        val runnable = if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
+        if (!event.guild!!.selfMember.voiceState!!.inAudioChannel()) {
             joinVC(event, event.member!!.voiceState!!.channel!!, event.textChannel)
-            Runnable {
-                println("Playing music now in ${event.member!!.voiceState!!.channel!!.name}")
-            }
         } else {
-            event.deferReply().setContent("Trying to add element to queue").queue()
-            Runnable {
-                event.hook.deleteOriginal().queue()
-            }
+            event.deferReply().queue()
         }
         val urlOption = event.getOption(URL.name)!!.asString
         val posOption = event.getOption("position")?.asLong?.toInt() ?: -1
@@ -36,7 +30,7 @@ object PlayCommand: Command(), SuggestionProviding {
             && urlOption.startsWith("/")
             || urlOption.startsWith("../")
             || (urlOption.startsWith("./") && urlOption.contains("../"))) {
-            event.hook.editOriginal("Sorry local file playback is disabled.").queue()
+            event.hook.sendMessage("Sorry local file playback is disabled.").queue()
             return
         }
 
@@ -44,7 +38,6 @@ object PlayCommand: Command(), SuggestionProviding {
             id = event.guild!!.idLong
             index = posOption
             this@apply.players = Companion.players
-            this.runnable = runnable
         })
     }
 

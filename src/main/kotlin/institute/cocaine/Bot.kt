@@ -26,7 +26,6 @@ import institute.cocaine.commands.RepeatCommand
 import institute.cocaine.commands.SeekCommand
 import institute.cocaine.commands.SkipCommand
 import institute.cocaine.listener.SanJoinListener
-import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
@@ -44,12 +43,15 @@ class Bot(private val token: String) {
     private val jda: JDA = JDABuilder.createDefault(this.token).enableCache(CacheFlag.VOICE_STATE)
         .enableIntents(GatewayIntent.GUILD_VOICE_STATES, GatewayIntent.GUILD_EMOJIS).injectKTX().build()
     private var playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
+    private var ranInit = false
 
     private val players = HashMapPutDefault(playerManager, jda)
 
     companion object {
         val respectPrivacy: Boolean
             get() = System.getenv()["dbl.violate.privacy"]?.toBoolean() ?: true
+        val isDevEnvironment: Boolean
+            get() = System.getenv()["dbl.dev"]?.toBoolean() ?: false
     }
 
     init {
@@ -57,7 +59,16 @@ class Bot(private val token: String) {
         AudioSourceManagers.registerRemoteSources(playerManager)
 
         jda.listener<ReadyEvent> { readyEvent ->
+            if (ranInit)
+                return@listener
+
             val guild = jda.getGuildById(732689330769887314L)!!
+
+            if (isDevEnvironment) {
+                // todo dev upsert of certain commands & making command names a static jvm field
+                return@listener
+            }
+
             guild.updateCommands {
                 slash(name = "join", description = "Joins your current VC!") {
                     option<VoiceChannel>(name = "channel", description = "joins another channel, you ain't at")
@@ -153,9 +164,9 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("pause") { event ->
-            val sendHandler = players[event.guild!!.idLong to event.textChannel].acceptEvent(event)
+            val sendHandler = players[event.guild!!.idLong to event.textChannel]
             sendHandler.audioPlayer.isPaused = !sendHandler.audioPlayer.isPaused
-            event.deferReply().queue()
+            event.deferReply().setContent("Trying to pause").queue()
         }
 
         jda.onCommand("play") { event ->
@@ -232,11 +243,9 @@ class Bot(private val token: String) {
 
         var id: Long = 0
         var index: Int = -1
-        lateinit var runnable: Runnable
         lateinit var players: HashMapPutDefault
         override fun trackLoaded(track: AudioTrack) {
             players[id].scheduler.enqueue(track, index)
-            runnable.run()
             index = -1
         }
 
