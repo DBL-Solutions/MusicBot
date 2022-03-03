@@ -22,6 +22,7 @@ import institute.cocaine.commands.DiceCommand
 import institute.cocaine.commands.JoinCommand
 import institute.cocaine.commands.NowPlayingCommand
 import institute.cocaine.commands.PlayCommand
+import institute.cocaine.commands.QueueCommand
 import institute.cocaine.commands.RepeatCommand
 import institute.cocaine.commands.SeekCommand
 import institute.cocaine.commands.SkipCommand
@@ -224,10 +225,18 @@ class Bot(private val token: String) {
         }
 
         jda.onCommand("queue") { event ->
-            // TODO
+            QueueCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
         }
+            // TODO
 
         jda.onCommand("mtq") { event ->
+            QueueCommand.apply {
+                Command.playerManager = this@Bot.playerManager
+                Command.players = this@Bot.players
+            }.handleSlashEvent(event)
             // TODO
         }
     }
