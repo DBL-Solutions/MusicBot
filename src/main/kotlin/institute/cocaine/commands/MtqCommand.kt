@@ -6,6 +6,5 @@ object MtqCommand: Command() {
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         val scheduler = players[event.guild!!.idLong].scheduler
         scheduler.queue.clear()
-
     }
 }

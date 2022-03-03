@@ -20,6 +20,7 @@ import institute.cocaine.commands.CleanCommand
 import institute.cocaine.commands.Command
 import institute.cocaine.commands.DiceCommand
 import institute.cocaine.commands.JoinCommand
+import institute.cocaine.commands.MtqCommand
 import institute.cocaine.commands.NowPlayingCommand
 import institute.cocaine.commands.PlayCommand
 import institute.cocaine.commands.QueueCommand
@@ -233,7 +234,7 @@ class Bot(private val token: String) {
             // TODO
 
         jda.onCommand("mtq") { event ->
-            QueueCommand.apply {
+            MtqCommand.apply {
                 Command.playerManager = this@Bot.playerManager
                 Command.players = this@Bot.players
             }.handleSlashEvent(event)
