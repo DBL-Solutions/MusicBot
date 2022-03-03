@@ -1,6 +1,5 @@
 package institute.cocaine.commands
 
-import institute.cocaine.Bot
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
 
 object QueueCommand: Command() {
