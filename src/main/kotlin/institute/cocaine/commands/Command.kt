@@ -42,4 +42,13 @@ sealed class Command {
             }
         })
     }
+
+    protected fun Long.toTime(): String {
+        val hconv = (60 * 60 * 1000)
+        val mconv = (60 * 1000)
+        val hours = this / hconv
+        val min = (this - hours * hconv) / mconv
+        val s = (this - hours * hconv - min * mconv) / 1000
+        return "" + (if (hours > 0) "%2d:".format(hours) else "") + (if (min > 0) "%2d:".format(min) else "") + "%2d".format(s)
+    }
 }

@@ -52,7 +52,7 @@ dependencies {
 compileKotlin {
     kotlinOptions {
         jvmTarget="16"
-        freeCompilerArgs=["-Xlambdas=indy", "-Xjvm-default=all"]
+        freeCompilerArgs=["-Xlambdas=indy", "-Xjvm-default=all", "-opt-in=kotlin.RequiresOptIn"]
     }
 }
 

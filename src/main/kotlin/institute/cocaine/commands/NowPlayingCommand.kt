@@ -170,15 +170,6 @@ object NowPlayingCommand: Command() {
         }
     }
 
-    private fun Long.toTime(): String {
-        val hconv = (60 * 60 * 1000)
-        val mconv = (60 * 1000)
-        val hours = this / hconv
-        val min = (this - hours * hconv) / mconv
-        val s = (this - hours * hconv - min * mconv) / 1000
-        return "" + (if (hours > 0) "$hours:" else "") + (if (min > 0) "$min:" else "") + s
-    }
-
     private fun Float.ceil(): Int = kotlin.math.ceil(this).toInt()
     private fun Float.floor(): Int = kotlin.math.floor(this).toInt()
 

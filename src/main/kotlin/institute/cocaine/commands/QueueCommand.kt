@@ -1,16 +1,29 @@
 package institute.cocaine.commands
 
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
+import dev.minn.jda.ktx.Message
+import dev.minn.jda.ktx.interactions.sendPaginator
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent
+import java.util.LinkedList
+import java.util.Queue
+import kotlin.time.Duration.Companion.minutes
 
 object QueueCommand: Command() {
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         val scheduler = players[event.guild!!.idLong].scheduler
-        scheduler.info(
-            scheduler.queue
-                .mapIndexed { index, audioTrack -> audioTrack.toQueueInfo(index) }
-                .joinToString(separator = "\n")
-        )
+
+        val queueContent = scheduler.queue
+            .mapIndexed { index, audioTrack -> audioTrack.toQueueInfo(index) }
+            .joinToString(separator = "\n")
+
+        val messages = queueContent.sliceOnSequenceInsideOfLimit("\n", 4000)
+            .map { Message {
+                content = it
+            }}
+            .toTypedArray()
+        
+        event.hook.sendPaginator(pages = messages, expireAfter = 10.minutes).queue()
+
     }
 
     private fun AudioTrack.toQueueInfo(index: Int): String {
@@ -20,13 +33,33 @@ object QueueCommand: Command() {
         val length = duration.toTime()
         return "#${index + 1} [$title](<$uri>) - `$author` ($length)"
     }
+    
+    private fun String.sliceOnSequenceInsideOfLimit(
+        str: String,
+        maxLength: Int
+    ): Queue<String> {
+        val out = LinkedList<String>()
 
-    private fun Long.toTime(): String {
-        val hconv = (60 * 60 * 1000)
-        val mconv = (60 * 1000)
-        val hours = this / hconv
-        val min = (this - hours * hconv) / mconv
-        val s = (this - hours * hconv - min * mconv) / 1000
-        return "" + (if (hours > 0) "%2d:".format(hours) else "") + (if (min > 0) "%2d:".format(min) else "") + "%2d".format(s)
+        if (this.length < maxLength) {
+            out.add(this)
+            return out
+        }
+
+        var lastIndex = 0
+        var lastSliceEnd = 0
+        var previous: Int
+
+        while (lastIndex != -1) {
+            previous = lastIndex
+            lastIndex = this.indexOf(str, lastIndex + str.length, false)
+            if ((lastIndex - lastSliceEnd) > (maxLength - str.length)) {
+                out.add(substring(lastSliceEnd, previous))
+                lastSliceEnd = previous + str.length
+            }
+        }
+
+        out.add(substring(lastSliceEnd))
+
+        return out
     }
 }
