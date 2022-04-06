@@ -6,8 +6,6 @@ import java.util.concurrent.ThreadLocalRandom
 object DiceCommand: Command() {
     override suspend fun handleSlashEvent(event: GenericCommandInteractionEvent) {
         val sites = event.getOption("sites")?.asLong ?: 6L
-        event.reply("You rolled a ${ThreadLocalRandom.current().nextLong(sites) + 1} with your $sites sided dice!")
+        event.reply("You rolled a ${ThreadLocalRandom.current().nextLong(sites) + 1} with your $sites sided dice!").queue()
     }
-
-
 }

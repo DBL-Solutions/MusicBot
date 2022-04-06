@@ -14,6 +14,8 @@ import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionE
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 object NowPlayingCommand: Command() {
 
@@ -59,7 +61,7 @@ object NowPlayingCommand: Command() {
         val msg = Message {
             content = track?.asInfo() ?: "Nothing rn, queue something bish"
         }
-        if (!hook.isExpired) {
+        if (!hook.isExpiredIn(15, TimeUnit.SECONDS)) {
             hook.editOriginal(msg).queueAfter(15, TimeUnit.SECONDS, {
                 updateProgressBar(hook, channel, player, listener)
             }) {
@@ -184,4 +186,7 @@ object NowPlayingCommand: Command() {
         return if (bool) this-1
             else 0
     }
+
+    private fun InteractionHook.isExpiredIn(amount: Long, unit: TimeUnit)
+        = (interaction.timeCreated.toEpochSecond() * 1000 + unit.toMillis(amount) - System.currentTimeMillis()) < 0
 }
